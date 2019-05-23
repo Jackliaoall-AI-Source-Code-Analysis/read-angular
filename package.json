@@ -1,0 +1,25 @@
+{
+  "name": "read-angular",
+  "version": "1.0.0",
+  "description": "read angular source code",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DimaLiLongJi/read-angular.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DimaLiLongJi/read-angular/issues"
+  },
+  "homepage": "https://github.com/DimaLiLongJi/read-angular#readme",
+  "dependencies": {
+    "rxjs": "^6.5.2"
+  },
+  "devDependencies": {
+    "typescript": "^3.4.5"
+  }
+}
