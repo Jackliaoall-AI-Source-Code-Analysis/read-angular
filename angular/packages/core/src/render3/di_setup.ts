@@ -82,7 +82,7 @@ function resolveProvider(
         tNode.providerIndexes >> TNodeProviderIndexes.CptViewProvidersCountShift;
 
     if (isClassProvider(provider) || isTypeProvider(provider)) {
-      const prototype = ((provider as ClassProvider).useClass || provider).prototype;
+      const prototype = (((provider as ClassProvider).useClass || provider) as any).prototype;
       const ngOnDestroy = prototype.ngOnDestroy;
 
       if (ngOnDestroy) {

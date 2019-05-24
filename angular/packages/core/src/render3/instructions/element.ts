@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {validateAgainstEventAttributes} from '../../sanitization/sanitization';
-import {assertDataInRange, assertEqual} from '../../util/assert';
+import {assertDataInRange, assertDefined, assertEqual} from '../../util/assert';
 import {assertHasParent} from '../assert';
 import {attachPatchData} from '../context_discovery';
 import {registerPostOrderHooks} from '../hooks';
@@ -14,11 +14,11 @@ import {TAttributes, TNodeFlags, TNodeType} from '../interfaces/node';
 import {RElement, isProceduralRenderer} from '../interfaces/renderer';
 import {SanitizerFn} from '../interfaces/sanitization';
 import {StylingContext} from '../interfaces/styling';
-import {BINDING_INDEX, QUERIES, RENDERER, TVIEW} from '../interfaces/view';
+import {BINDING_INDEX, HEADER_OFFSET, QUERIES, RENDERER, TVIEW, T_HOST} from '../interfaces/view';
 import {assertNodeType} from '../node_assert';
 import {appendChild} from '../node_manipulation';
 import {applyOnCreateInstructions} from '../node_util';
-import {decreaseElementDepthCount, getElementDepthCount, getIsParent, getLView, getPreviousOrParentTNode, getSelectedIndex, increaseElementDepthCount, setIsParent, setPreviousOrParentTNode} from '../state';
+import {decreaseElementDepthCount, getElementDepthCount, getIsParent, getLView, getPreviousOrParentTNode, getSelectedIndex, increaseElementDepthCount, setIsNotParent, setPreviousOrParentTNode} from '../state';
 import {getInitialClassNameValue, getInitialStyleStringValue, initializeStaticContext, patchContextWithStaticAttrs, renderInitialClasses, renderInitialStyles} from '../styling/class_and_style_bindings';
 import {getStylingContextFromLView, hasClassInput, hasStyleInput} from '../styling/util';
 import {registerInitialStylingIntoContext} from '../styling_next/instructions';
@@ -27,8 +27,10 @@ import {NO_CHANGE} from '../tokens';
 import {attrsStylingIndexOf, setUpAttributes} from '../util/attrs_utils';
 import {renderStringify} from '../util/misc_utils';
 import {getNativeByIndex, getNativeByTNode, getTNode} from '../util/view_utils';
-import {createDirectivesAndLocals, createNodeAtIndex, elementCreate, executeContentQueries, initializeTNodeInputs, setInputsForProperty, setNodeStylingTemplate} from './shared';
+
+import {createDirectivesAndLocals, elementCreate, executeContentQueries, getOrCreateTNode, initializeTNodeInputs, setInputsForProperty, setNodeStylingTemplate} from './shared';
 import {getActiveDirectiveStylingIndex} from './styling';
+
 
 
 /**
@@ -55,13 +57,11 @@ export function ɵɵelementStart(
                    'elements should be created before any bindings ');
 
   ngDevMode && ngDevMode.rendererCreateElement++;
-
-  const native = elementCreate(name);
+  ngDevMode && assertDataInRange(lView, index + HEADER_OFFSET);
+  const native = lView[index + HEADER_OFFSET] = elementCreate(name);
   const renderer = lView[RENDERER];
-
-  ngDevMode && assertDataInRange(lView, index - 1);
-
-  const tNode = createNodeAtIndex(index, TNodeType.Element, native !, name, attrs || null);
+  const tNode =
+      getOrCreateTNode(tView, lView[T_HOST], index, TNodeType.Element, name, attrs || null);
   let initialStylesIndex = 0;
   let initialClassesIndex = 0;
 
@@ -78,12 +78,13 @@ export function ɵɵelementStart(
     // instantiated into a context per element)
     setNodeStylingTemplate(tView, tNode, attrs, lastAttrIndex);
 
-    if (tNode.stylingTemplate) {
+    const stylingTemplate = tNode.stylingTemplate;
+    if (stylingTemplate) {
       // the initial style/class values are rendered immediately after having been
       // initialized into the context so the element styling is ready when directives
       // are initialized (since they may read style/class values in their constructor)
-      initialStylesIndex = renderInitialStyles(native, tNode.stylingTemplate, renderer);
-      initialClassesIndex = renderInitialClasses(native, tNode.stylingTemplate, renderer);
+      initialStylesIndex = renderInitialStyles(native, stylingTemplate, renderer);
+      initialClassesIndex = renderInitialClasses(native, stylingTemplate, renderer);
     }
   }
 
@@ -138,12 +139,13 @@ export function ɵɵelementStart(
  */
 export function ɵɵelementEnd(): void {
   let previousOrParentTNode = getPreviousOrParentTNode();
+  ngDevMode && assertDefined(previousOrParentTNode, 'No parent node to close.');
   if (getIsParent()) {
-    setIsParent(false);
+    setIsNotParent();
   } else {
     ngDevMode && assertHasParent(getPreviousOrParentTNode());
     previousOrParentTNode = previousOrParentTNode.parent !;
-    setPreviousOrParentTNode(previousOrParentTNode);
+    setPreviousOrParentTNode(previousOrParentTNode, false);
   }
 
   // this is required for all host-level styling-related instructions to run

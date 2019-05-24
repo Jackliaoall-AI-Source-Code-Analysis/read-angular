@@ -272,7 +272,7 @@ function wrapExpression(obj: any, property: string): WrappedNodeExpr<any>|undefi
 
 function computeProvidedIn(providedIn: Type | string | null | undefined): Expression {
   if (providedIn == null || typeof providedIn === 'string') {
-    return new LiteralExpr(providedIn);
+    return new LiteralExpr(providedIn as any);
   } else {
     return new WrappedNodeExpr(providedIn);
   }

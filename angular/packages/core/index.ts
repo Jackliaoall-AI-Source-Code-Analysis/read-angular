@@ -10,5 +10,5 @@
 // by the TypeScript language service and during build for verification. `ngc`
 // replaces this file with production index.ts when it rewrites private symbol
 // names.
-
+import 'zone.js';
 export * from './public_api';

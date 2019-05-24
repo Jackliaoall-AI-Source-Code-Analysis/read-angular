@@ -11,12 +11,13 @@
 import {Type} from '../core';
 import {Injector} from '../di/injector';
 import {Sanitizer} from '../sanitization/security';
+import {assertDataInRange, assertEqual} from '../util/assert';
 
 import {assertComponentType} from './assert';
 import {getComponentDef} from './definition';
 import {diPublicInInjector, getOrCreateNodeInjectorForNode} from './di';
 import {registerPostOrderHooks, registerPreOrderHooks} from './hooks';
-import {CLEAN_PROMISE, addToViewTree, createLView, createNodeAtIndex, createTView, getOrCreateTView, initNodeFlags, instantiateRootComponent, invokeHostBindingsInCreationMode, locateHostElement, queueComponentIndexForCheck, refreshDescendantViews} from './instructions/shared';
+import {CLEAN_PROMISE, addToViewTree, createLView, createTView, getOrCreateTNode, getOrCreateTView, initNodeFlags, instantiateRootComponent, invokeHostBindingsInCreationMode, locateHostElement, queueComponentIndexForCheck, refreshDescendantViews} from './instructions/shared';
 import {ComponentDef, ComponentType, RenderFlags} from './interfaces/definition';
 import {TElementNode, TNode, TNodeFlags, TNodeType} from './interfaces/node';
 import {PlayerHandler} from './interfaces/player';
@@ -172,7 +173,9 @@ export function createRootComponentView(
     rendererFactory: RendererFactory3, renderer: Renderer3, sanitizer?: Sanitizer | null): LView {
   resetComponentState();
   const tView = rootView[TVIEW];
-  const tNode: TElementNode = createNodeAtIndex(0, TNodeType.Element, rNode, null, null);
+  ngDevMode && assertDataInRange(rootView, 0 + HEADER_OFFSET);
+  rootView[0 + HEADER_OFFSET] = rNode;
+  const tNode: TElementNode = getOrCreateTNode(tView, null, 0, TNodeType.Element, null, null);
   const componentView = createLView(
       rootView, getOrCreateTView(def), null, def.onPush ? LViewFlags.Dirty : LViewFlags.CheckAlways,
       rootView[HEADER_OFFSET], tNode, rendererFactory, renderer, sanitizer);

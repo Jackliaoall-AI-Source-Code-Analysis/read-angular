@@ -5,15 +5,17 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
+import {assertDataInRange} from '../../util/assert';
 import {TAttributes, TElementNode, TNode, TNodeType} from '../interfaces/node';
 import {CssSelectorList} from '../interfaces/projection';
-import {T_HOST} from '../interfaces/view';
+import {HEADER_OFFSET, TVIEW, T_HOST} from '../interfaces/view';
 import {appendProjectedNodes} from '../node_manipulation';
 import {matchingProjectionSelectorIndex} from '../node_selector_matcher';
-import {getLView, setIsParent} from '../state';
+import {getLView, setIsNotParent} from '../state';
 import {findComponentView} from '../util/view_traversal_utils';
 
-import {createNodeAtIndex} from './shared';
+import {getOrCreateTNode} from './shared';
+
 
 
 /**
@@ -81,14 +83,14 @@ export function ɵɵprojectionDef(selectors?: CssSelectorList[]): void {
 export function ɵɵprojection(
     nodeIndex: number, selectorIndex: number = 0, attrs?: TAttributes): void {
   const lView = getLView();
-  const tProjectionNode =
-      createNodeAtIndex(nodeIndex, TNodeType.Projection, null, null, attrs || null);
+  const tProjectionNode = getOrCreateTNode(
+      lView[TVIEW], lView[T_HOST], nodeIndex, TNodeType.Projection, null, attrs || null);
 
   // We can't use viewData[HOST_NODE] because projection nodes can be nested in embedded views.
   if (tProjectionNode.projection === null) tProjectionNode.projection = selectorIndex;
 
   // `<ng-content>` has no content
-  setIsParent(false);
+  setIsNotParent();
 
   // re-distribution of projectable nodes is stored on a component's view level
   appendProjectedNodes(lView, tProjectionNode, selectorIndex, findComponentView(lView));
