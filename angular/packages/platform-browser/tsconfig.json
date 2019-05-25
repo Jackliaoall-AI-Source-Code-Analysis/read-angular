@@ -4,21 +4,27 @@
   "compilerOptions": {
     "baseUrl": ".",
     "rootDir": ".",
-    "outDir": "../../dist/packages/platform-browser"
+    "outDir": "../../dist/packages/platform-browser",
+    "paths": {
+      "selenium-webdriver": ["../../node_modules/@types/selenium-webdriver/index.d.ts"],
+      "rxjs/*": ["../../node_modules/rxjs/*"],
+      "@angular/*": ["../*"],
+      "e2e_util/*": ["../../modules/e2e_util/*"]
+    },
   },
 
   "files": [
     "public_api.ts",
     "../../node_modules/@types/hammerjs/index.d.ts",
     "../../node_modules/zone.js/dist/zone.js.d.ts",
-    "goog.d.ts"
+    "../goog.d.ts"
   ],
 
-  "angularCompilerOptions": {
-    "annotateForClosureCompiler": true,
-    "strictMetadataEmit": false,
-    "skipTemplateCodegen": true,
-    "flatModuleOutFile": "platform-browser.js",
-    "flatModuleId": "@angular/platform-browser"
-  }
+  // "angularCompilerOptions": {
+  //   "annotateForClosureCompiler": true,
+  //   "strictMetadataEmit": false,
+  //   "skipTemplateCodegen": true,
+  //   "flatModuleOutFile": "platform-browser.js",
+  //   "flatModuleId": "@angular/platform-browser"
+  // }
 }

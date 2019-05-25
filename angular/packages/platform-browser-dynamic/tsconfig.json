@@ -1,9 +1,10 @@
 {
   "extends": "../tsconfig.json",
+
   "compilerOptions": {
     "baseUrl": ".",
     "rootDir": ".",
-    "outDir": "../../dist/packages/core",
+    "outDir": "../../dist/packages/platform-browser-dynamic",
     "paths": {
       "selenium-webdriver": ["../../node_modules/@types/selenium-webdriver/index.d.ts"],
       "rxjs/*": ["../../node_modules/rxjs/*"],
@@ -11,17 +12,18 @@
       "e2e_util/*": ["../../modules/e2e_util/*"]
     },
   },
+
   "files": [
     "public_api.ts",
-    "../../node_modules/zone.js/dist/zone.js.d.ts",
-    "../system.d.ts",
-    "goog.d.ts"
+    "../../node_modules/@types/jasmine/index.d.ts",
+    "../../node_modules/zone.js/dist/zone.js.d.ts"
   ],
+
   "angularCompilerOptions": {
     "annotateForClosureCompiler": true,
     "strictMetadataEmit": false,
     "skipTemplateCodegen": true,
-    "flatModuleOutFile": "core.js",
-    "flatModuleId": "@angular/core"
+    "flatModuleOutFile": "platform-browser-dynamic.js",
+    "flatModuleId": "@angular/platform-browser-dynamic"
   }
 }

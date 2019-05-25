@@ -127,6 +127,7 @@ export function createPlatformFactory(
     parentPlatformFactory: ((extraProviders?: StaticProvider[]) => PlatformRef) | null,
     name: string, providers: StaticProvider[] = []): (extraProviders?: StaticProvider[]) =>
     PlatformRef {
+      console.log(7777777); // todo delete
   const desc = `Platform: ${name}`;
   const marker = new InjectionToken(desc);
   return (extraProviders: StaticProvider[] = []) => {
