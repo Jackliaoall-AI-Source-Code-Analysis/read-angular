@@ -9,7 +9,7 @@ angular 版本：8.0.0-rc.4
 
 而且大部分人一听说 angular 就会本能地避开。
 
-![angular三连](https://raw.githubusercontent.com/DimaLiLongJi/InDiv/master/docs/img/angular三连.png)
+![angular三连](https://raw.githubusercontent.com/DimaLiLongJi/read-angular/master/docs/img/angular%E4%B8%89%E8%BF%9E.png)
 
 但其实不是的，在我眼里 angular 只是套用了很多后端已有的概念，比如 DI，比如 AOT 等。
 
@@ -21,7 +21,7 @@ angular 版本：8.0.0-rc.4
 
 也有一点私心，希望更多人说 **ng大法好** ，哈哈。
 
-![一起学习angular](https://raw.githubusercontent.com/DimaLiLongJi/InDiv/master/docs/img/一起学习angular.png)
+![一起学习angular](https://github.com/DimaLiLongJi/read-angular/blob/master/docs/img/%E4%B8%80%E8%B5%B7%E5%AD%A6%E4%B9%A0angular.png?raw=true)
 
 
 ## 项目结构
