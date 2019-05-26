@@ -15,6 +15,7 @@ import {TestabilityRegistry} from './testability/testability';
 const _CORE_PLATFORM_PROVIDERS: StaticProvider[] = [
   // Set a default platform name for platforms that don't set it explicitly.
   {provide: PLATFORM_ID, useValue: 'unknown'},
+  // 在这里 PlatformRef 被加入了 injector 并在 createPlatformFactory 中实例化
   {provide: PlatformRef, deps: [Injector]},
   {provide: TestabilityRegistry, deps: []},
   {provide: Console, deps: []},

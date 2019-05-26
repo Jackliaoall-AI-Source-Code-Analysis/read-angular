@@ -1,9 +1,19 @@
 # read-angular
+
 angular 源码阅读
 
-angular 版本：8.0.0-rc.4
+[项目地址](https://github.com/DimaLiLongJi/read-angular)
 
-## 关于为什么写这么一个库
+[文章地址](https://dimalilongji.github.io/read-angular)
+
+[angular 版本：8.0.0-rc.4](https://github.com/angular/angular/tree/8.0.0-rc.4)
+
+[欢迎看看我的类angular框架](https://github.com/DimaLiLongJi/InDiv)
+
+
+## 关于为什么写这么一个项目
+
+**声明：仅仅为个人阅读源码的理解，不一定完全正确，还需要大佬的指点。**
 
 其实市面上很多关于 vue和react 的源码阅读，但是基本上没有看到关于 angular 系统性地源码阅读。
 
@@ -24,12 +34,22 @@ angular 版本：8.0.0-rc.4
 ![一起学习angular](https://github.com/DimaLiLongJi/read-angular/blob/master/docs/img/%E4%B8%80%E8%B5%B7%E5%AD%A6%E4%B9%A0angular.png?raw=true)
 
 
+## 前提
+
+希望看之前读者能先了解一下 typescripy 和 angular 的基础概念，因为文章里会出现大量的 DI，服务商啊这类词
+
+1. [typescript](https://www.tslang.cn/docs/home.html)
+2. [angular文档](https://www.angular.cn/docs)
+
+![angular的基础架构](https://www.angular.cn/generated/images/guide/architecture/overview2.png)
+
+
 ## 项目结构
 
 项目下只有三个文件夹：angular docs 和 my-demo
 
 ```
-- angular: angular的ts源代码
+- angular: 注释版angular的ts源代码
 - docs: 文档位置
 - my-demo: 启动的一个demo项目
 ```

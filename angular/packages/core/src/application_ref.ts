@@ -113,6 +113,7 @@ export function createPlatform(injector: Injector): PlatformRef {
         'There can be only one platform. Destroy the previous one to create a new one.');
   }
   _platform = injector.get(PlatformRef);
+  // 初始化平台时将执行的函数
   const inits = injector.get(PLATFORM_INITIALIZER, null);
   if (inits) inits.forEach((init: any) => init());
   return _platform;
@@ -127,18 +128,22 @@ export function createPlatformFactory(
     parentPlatformFactory: ((extraProviders?: StaticProvider[]) => PlatformRef) | null,
     name: string, providers: StaticProvider[] = []): (extraProviders?: StaticProvider[]) =>
     PlatformRef {
-      console.log(7777777); // todo delete
   const desc = `Platform: ${name}`;
   const marker = new InjectionToken(desc);
   return (extraProviders: StaticProvider[] = []) => {
     let platform = getPlatform();
+    // 判断是否存在平台实例
     if (!platform || platform.injector.get(ALLOW_MULTIPLE_PLATFORMS, false)) {
       if (parentPlatformFactory) {
+        console.log(66666, name, providers);
+        // 调用父平台方法
         parentPlatformFactory(
             providers.concat(extraProviders).concat({provide: marker, useValue: true}));
       } else {
+        console.log(77777, name, providers);
         const injectedProviders: StaticProvider[] =
             providers.concat(extraProviders).concat({provide: marker, useValue: true});
+        // Injector.create创建平台实例，并获取设置为全局平台实例
         createPlatform(Injector.create({providers: injectedProviders, name: desc}));
       }
     }

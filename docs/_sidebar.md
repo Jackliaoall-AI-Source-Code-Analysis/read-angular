@@ -1,2 +1,2 @@
-- 开始
-  - [开始第一步](start)
+- 启动app
+  - [平台实例](platformBrowserDynamic)
