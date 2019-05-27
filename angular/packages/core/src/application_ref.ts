@@ -115,6 +115,7 @@ export function createPlatform(injector: Injector): PlatformRef {
   _platform = injector.get(PlatformRef);
   // 初始化平台时将执行的函数
   const inits = injector.get(PLATFORM_INITIALIZER, null);
+  console.log(7777777, PLATFORM_INITIALIZER, inits);
   if (inits) inits.forEach((init: any) => init());
   return _platform;
 }

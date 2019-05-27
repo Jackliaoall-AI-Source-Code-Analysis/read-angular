@@ -155,7 +155,65 @@ export const platformBrowserDynamic = createPlatformFactory(
     platformCoreDynamic, 'browserDynamic', INTERNAL_BROWSER_DYNAMIC_PLATFORM_PROVIDERS);
 ```
 
-在创建 `platformBrowserDynamic` 时候，传入了返回父平台实例的方法 `platformCoreDynamic`
+重点来了：`INTERNAL_BROWSER_DYNAMIC_PLATFORM_PROVIDERS`
+
+这个 `providers` 究竟提供了什么服务？
+
+> angular/packages/platform-browser-dynamic/src/platform_providers.ts
+
+```typescript
+/**
+ * @publicApi
+ */
+export const INTERNAL_BROWSER_DYNAMIC_PLATFORM_PROVIDERS: StaticProvider[] = [
+  INTERNAL_BROWSER_PLATFORM_PROVIDERS,
+  {
+    provide: COMPILER_OPTIONS,
+    useValue: {providers: [{provide: ResourceLoader, useClass: ResourceLoaderImpl, deps: []}]},
+    multi: true
+  },
+  {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
+];
+```
+
+除了 `COMPILER_OPTIONS` 和 `PLATFORM_ID`，大概重点就是 `INTERNAL_BROWSER_PLATFORM_PROVIDERS` 了吧。
+
+`INTERNAL_BROWSER_PLATFORM_PROVIDERS` 来自 `@angular/platform-browser`：
+
+> angular/packages/platform-browser/src/browser.ts
+
+```typescript
+export const INTERNAL_BROWSER_PLATFORM_PROVIDERS: StaticProvider[] = [
+  {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
+  {provide: PLATFORM_INITIALIZER, useValue: initDomAdapter, multi: true},
+  {provide: PlatformLocation, useClass: BrowserPlatformLocation, deps: [DOCUMENT]},
+  {provide: DOCUMENT, useFactory: _document, deps: []},
+];
+```
+
+`@angular/platform-browser` 提供了一些浏览器端的ng实现：
+
+1. `PLATFORM_INITIALIZER` 是初始化需要执行的方法集合 **这个很重要**
+2. `DOCUMENT` 浏览器端的 `document` ，`_document` 工厂方法返回 `document`
+
+在上面，`createPlatform` 的时候，会 `const inits = injector.get(PLATFORM_INITIALIZER, null); if (inits) inits.forEach((init: any) => init());` 依次执行 `PLATFORM_INITIALIZER` 注入的工厂方法。
+
+那么来看看 `initDomAdapter` 吧：
+
+> angular/packages/platform-browser/src/browser.ts
+
+```typescript
+export function initDomAdapter() {
+  BrowserDomAdapter.makeCurrent();
+  BrowserGetTestability.init();
+}
+```
+
+1. `BrowserDomAdapter.makeCurrent();` 通过 `BrowserDomAdapter` 的静态方法实例化一个 `BrowserDomAdapter` 全局DOM适配器 ，具体就是**实现并封装了一些在浏览器端的方法**，具体的可以看 `angular/packages/platform-browser/src/browser/browser_adapter.ts` 中的 `class BrowserDomAdapter extends GenericBrowserDomAdapter`
+2. `BrowserGetTestability.init();` 则是初始化 angular 的测试，这个就没看了
+
+
+回过头看下，在创建 `platformBrowserDynamic` 时候，传入了返回父平台实例的方法 `platformCoreDynamic`
 
 
 ## platformCoreDynamic
@@ -284,4 +342,5 @@ export class PlatformRef {
 1. 调用 `createPlatformFactory` 合并平台 `browserDynamic` 的 `providers` 并触发父级平台 `coreDynamic` 的平台工厂函数
 2. 调用 `createPlatformFactory` 合并平台 `coreDynamic` 的 `providers` 并触发父级平台 `core` 的平台工厂函数
 3. 由于平台 `core` 无父级平台，**调用 `Injector.create` 创建 `PlatformRef` 实例**，并**赋值给全局唯一的平台实例 `_platform`**
-4. 最后断言，确认存在 `PlatformRef` 实例，并返回 `PlatformRef` 实例
+4. 在 `createPlatform` 创建 `PlatformRef` 的时候，实例化一个 `BrowserDomAdapter` 全局DOM适配器 ，具体就是**实现并封装了一些在浏览器端的方法**
+5. 最后断言，确认存在 `PlatformRef` 实例，并返回 `PlatformRef` 实例
