@@ -38,9 +38,20 @@ Angular 应用是模块化的，它拥有自己的模块化系统，称作 `NgMo
 [bootstrap 应用的主视图，称为根组件。它是应用中所有其它视图的宿主。只有根模块才应该设置这个 `bootstrap` 属性](https://www.angular.cn/api/core/NgModule#bootstrap)
 
 
-## platformBrowserDynamic
+## platform
 
-实例化 angular 根模块的 `bootstrapModule` 的方法在浏览器端来自 `platformBrowserDynamic`。
+angular 抽象出 platform，来实现跨平台。
+
+实例化 angular 根模块的 `bootstrapModule` 的方法在浏览器端来自 `@angular/platform-browser-dynamic`。
+
+其实除了 `@angular/platform-browser-dynamic` 之外还有 `@angular/platform-browser`。
+
+这两个模块的主要区别是编译方式的不同， `platform-browser-dynamic` 提供 JIT 编译,也就是说编译在浏览器内完成，而 `platform-browser` 提供 AOT 编译,编译在本地完成。
+
+[至于区别](https://www.angular.cn/guide/aot-compiler#angular-compilation)
+
+
+## platformBrowserDynamic
 
 > angular/packages/platform-browser-dynamic/src/platform-browser-dynamic.ts
 
@@ -106,6 +117,13 @@ export function createPlatformFactory(
 3. 调用 `assertPlatform` 确认 IOC 容器中存在 该 `marker` 的平台实例并返回
 
 **所以创建平台实例的顺序上，应该是 `合并 browserDynamic 的 provider => 合并 coreDynamic 的 provider => 合并 provider 并创建 core`**
+
+大概用人话描述就是：
+
+1. 判断是否已经创建过了
+2. 判断是否有父 `Factory`
+3. 如果有父 `Factory` 就把调用 `Factory` 时传入的 `Provider` 和调用 `createPlatformFactory` 传入的 `Provider` 合并，然后调用父 `Factory`
+4. 如果没有父 `Factory` ，先创建一个 `Injector` ，然后去创建 `PlatformRef` 实例
 
 
 ## createPlatform
