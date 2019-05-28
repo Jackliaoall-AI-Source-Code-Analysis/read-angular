@@ -259,6 +259,137 @@ export const platformCoreDynamic = createPlatformFactory(platformCore, 'coreDyna
 2. 平台名 `coreDynamic`
 3. 2个静态服务提供者：编译选项 `COMPILER_OPTIONS` 和 `platformDynamic` 的[JIT](https://www.angular.cn/guide/aot-compiler#angular-compilation)编译器工厂 `JitCompilerFactory`
 
+**重点来了**
+
+一起看下 `JitCompilerFactory` ：
+
+> angular/packages/platform-browser-dynamic/src/compiler_factory.ts
+
+```typescript
+/**
+ * @publicApi
+ */
+export class JitCompilerFactory implements CompilerFactory {
+  private _defaultOptions: CompilerOptions[];
+
+  /* @internal */
+  constructor(defaultOptions: CompilerOptions[]) {
+    const compilerOptions: CompilerOptions = {
+      useJit: true,
+      defaultEncapsulation: ViewEncapsulation.Emulated,
+      missingTranslation: MissingTranslationStrategy.Warning,
+    };
+
+    this._defaultOptions = [compilerOptions, ...defaultOptions];
+  }
+  createCompiler(options: CompilerOptions[] = []): Compiler {
+    const opts = _mergeOptions(this._defaultOptions.concat(options));
+    const injector = Injector.create([
+      COMPILER_PROVIDERS, {
+        provide: CompilerConfig,
+        useFactory: () => {
+          return new CompilerConfig({
+            // let explicit values from the compiler options overwrite options
+            // from the app providers
+            useJit: opts.useJit,
+            jitDevMode: isDevMode(),
+            // let explicit values from the compiler options overwrite options
+            // from the app providers
+            defaultEncapsulation: opts.defaultEncapsulation,
+            missingTranslation: opts.missingTranslation,
+            preserveWhitespaces: opts.preserveWhitespaces,
+          });
+        },
+        deps: []
+      },
+      opts.providers !
+    ]);
+    return injector.get(Compiler);
+  }
+}
+```
+
+编译器在 `COMPILER_PROVIDERS` 作为服务提供商被提供给注射器：
+
+> angular/packages/platform-browser-dynamic/src/compiler_factory.ts
+
+```typescript
+/**
+ * A set of providers that provide `JitCompiler` and its dependencies to use for
+ * template compilation.
+ */
+export const COMPILER_PROVIDERS = <StaticProvider[]>[
+  {provide: CompileReflector, useValue: new JitReflector()},
+  {provide: ResourceLoader, useValue: _NO_RESOURCE_LOADER},
+  {provide: JitSummaryResolver, deps: []},
+  {provide: SummaryResolver, useExisting: JitSummaryResolver},
+  {provide: Console, deps: []},
+  {provide: Lexer, deps: []},
+  {provide: Parser, deps: [Lexer]},
+  {
+    provide: baseHtmlParser,
+    useClass: HtmlParser,
+    deps: [],
+  },
+  {
+    provide: I18NHtmlParser,
+    useFactory: (parser: HtmlParser, translations: string | null, format: string,
+                 config: CompilerConfig, console: Console) => {
+      translations = translations || '';
+      const missingTranslation =
+          translations ? config.missingTranslation ! : MissingTranslationStrategy.Ignore;
+      return new I18NHtmlParser(parser, translations, format, missingTranslation, console);
+    },
+    deps: [
+      baseHtmlParser,
+      [new Optional(), new Inject(TRANSLATIONS)],
+      [new Optional(), new Inject(TRANSLATIONS_FORMAT)],
+      [CompilerConfig],
+      [Console],
+    ]
+  },
+  {
+    provide: HtmlParser,
+    useExisting: I18NHtmlParser,
+  },
+  {
+    provide: TemplateParser, deps: [CompilerConfig, CompileReflector,
+    Parser, ElementSchemaRegistry,
+    I18NHtmlParser, Console]
+  },
+  { provide: JitEvaluator, useClass: JitEvaluator, deps: [] },
+  { provide: DirectiveNormalizer, deps: [ResourceLoader, UrlResolver, HtmlParser, CompilerConfig]},
+  { provide: CompileMetadataResolver, deps: [CompilerConfig, HtmlParser, NgModuleResolver,
+                      DirectiveResolver, PipeResolver,
+                      SummaryResolver,
+                      ElementSchemaRegistry,
+                      DirectiveNormalizer, Console,
+                      [Optional, StaticSymbolCache],
+                      CompileReflector,
+                      [Optional, ERROR_COLLECTOR_TOKEN]]},
+  DEFAULT_PACKAGE_URL_PROVIDER,
+  { provide: StyleCompiler, deps: [UrlResolver]},
+  { provide: ViewCompiler, deps: [CompileReflector]},
+  { provide: NgModuleCompiler, deps: [CompileReflector] },
+  { provide: CompilerConfig, useValue: new CompilerConfig()},
+  { provide: Compiler, useClass: CompilerImpl, deps: [Injector, CompileMetadataResolver,
+                                TemplateParser, StyleCompiler,
+                                ViewCompiler, NgModuleCompiler,
+                                SummaryResolver, CompileReflector, JitEvaluator, CompilerConfig,
+                                Console]},
+  { provide: DomElementSchemaRegistry, deps: []},
+  { provide: ElementSchemaRegistry, useExisting: DomElementSchemaRegistry},
+  { provide: UrlResolver, deps: [PACKAGE_ROOT_URL]},
+  { provide: DirectiveResolver, deps: [CompileReflector]},
+  { provide: PipeResolver, deps: [CompileReflector]},
+  { provide: NgModuleResolver, deps: [CompileReflector]},
+];
+```
+
+最后，其实也是创建了一个 `injector`，然后获取了 编译器实例 `Compiler`，所以：
+
+**大概就是 `@angular/platform-browser-dynamic` 提供 JIT 编译** 的原因了吧。
+
 
 ## platformCore
 
@@ -359,6 +490,9 @@ export class PlatformRef {
 
 1. 调用 `createPlatformFactory` 合并平台 `browserDynamic` 的 `providers` 并触发父级平台 `coreDynamic` 的平台工厂函数
 2. 调用 `createPlatformFactory` 合并平台 `coreDynamic` 的 `providers` 并触发父级平台 `core` 的平台工厂函数
-3. 由于平台 `core` 无父级平台，**调用 `Injector.create` 创建 `PlatformRef` 实例**，并**赋值给全局唯一的平台实例 `_platform`**
-4. 在 `createPlatform` 创建 `PlatformRef` 的时候，实例化一个 `BrowserDomAdapter` 全局DOM适配器 ，具体就是**实现并封装了一些在浏览器端的方法**
-5. 最后断言，确认存在 `PlatformRef` 实例，并返回 `PlatformRef` 实例
+3. `coreDynamic` 工厂提供的服务供应商中 **含有：`JitCompilerFactory`，`JitCompilerFactory` 又通过创建 `COMPILER_PROVIDERS` 创建了编译器实例**，所以 **`@angular/platform-browser-dynamic` 提供 JIT运行时 编译**
+4. 由于平台 `core` 无父级平台，**调用 `Injector.create` 创建 `PlatformRef` 实例**，并**赋值给全局唯一的平台实例 `_platform`**
+5. 在 `createPlatform` 创建 `PlatformRef` 的时候，实例化一个 `BrowserDomAdapter` 全局DOM适配器 ，具体就是**实现并封装了一些在浏览器端的方法**
+6. 最后断言，确认存在 `PlatformRef` 实例，并返回 `PlatformRef` 实例
+
+所以大概，`@angular/platform-browser-dynamic` **提供了运行时编译，实现并封装了浏览器方法**
