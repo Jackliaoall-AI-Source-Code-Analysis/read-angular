@@ -58,7 +58,7 @@ export class JitCompiler {
   }
 
   compileModuleAsync(moduleType: Type): Promise<object> {
-    return Promise.resolve(this._compileModuleAndComponents(moduleType, false));
+    return Promise.resolve(this._compileModuleAndComponents(moduleType, false)); // 注释：其实 JTI 编译在这部做的
   }
 
   compileModuleAndAllComponentsSync(moduleType: Type): ModuleWithComponentFactories {
@@ -113,7 +113,7 @@ export class JitCompiler {
   private _compileModuleAndAllComponents(moduleType: Type, isSync: boolean):
       SyncAsync<ModuleWithComponentFactories> {
     return SyncAsync.then(this._loadModules(moduleType, isSync), () => {
-      const componentFactories: object[] = [];
+      const componentFactories: object[] = []; // 注释：异步有结果之后的回调函数，编译主模块上的所有组件
       this._compileComponents(moduleType, componentFactories);
       return {
         ngModuleFactory: this._compileModule(moduleType),
@@ -122,6 +122,7 @@ export class JitCompiler {
     });
   }
 
+  // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
   private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> {
     const loading: Promise<any>[] = [];
     const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
@@ -161,7 +162,7 @@ export class JitCompiler {
   /**
    * @internal
    */
-  _compileComponents(mainModule: Type, allComponentFactories: object[]|null) {
+  _compileComponents(mainModule: Type, allComponentFactories: object[]|null) { // 注释：编译主模块上的所有组件
     const ngModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
     const moduleByJitDirective = new Map<any, CompileNgModuleMetadata>();
     const templates = new Set<CompiledTemplate>();

@@ -106,7 +106,7 @@ export class Compiler {
    * Compiles the given NgModule and all of its components
    */
   compileModuleAsync:
-      <T>(moduleType: Type<T>) => Promise<NgModuleFactory<T>> = Compiler_compileModuleAsync;
+      <T>(moduleType: Type<T>) => Promise<NgModuleFactory<T>> = Compiler_compileModuleAsync; // 注释：异步创建模块及其子组件
 
   /**
    * Same as {@link #compileModuleSync} but also creates ComponentFactories for all components.

@@ -42,9 +42,9 @@ let compileNgModuleFactory:
 function compileNgModuleFactory__PRE_R3__<M>(
     injector: Injector, options: CompilerOptions,
     moduleType: Type<M>): Promise<NgModuleFactory<M>> {
-  const compilerFactory: CompilerFactory = injector.get(CompilerFactory);
-  const compiler = compilerFactory.createCompiler([options]);
-  return compiler.compileModuleAsync(moduleType);
+  const compilerFactory: CompilerFactory = injector.get(CompilerFactory); // 注释：其实就是平台coreDynamic 的服务商 JitCompilerFactory
+  const compiler = compilerFactory.createCompiler([options]); // 注释：创建 JitCompilerFactory 编译器实例
+  return compiler.compileModuleAsync(moduleType); // 注释：异步创建 ngmodule 模块
 }
 
 export function compileNgModuleFactory__POST_R3__<M>(
@@ -113,15 +113,19 @@ export function createPlatform(injector: Injector): PlatformRef {
         'There can be only one platform. Destroy the previous one to create a new one.');
   }
   _platform = injector.get(PlatformRef);
-  // 初始化平台时将执行的函数
+  // 注释：初始化平台时将执行的函数，平台browserDynamic提供
   const inits = injector.get(PLATFORM_INITIALIZER, null);
-  console.log(7777777, PLATFORM_INITIALIZER, inits);
   if (inits) inits.forEach((init: any) => init());
   return _platform;
 }
 
 /**
  * Creates a factory for a platform
+ * 
+ * 1. 判断是否已经创建过了
+ * 2. 判断是否有父 `Factory`
+ * 3. 如果有父 `Factory` 就把调用 `Factory` 时传入的 `Provider` 和调用 `createPlatformFactory` 传入的 `Provider` 合并，然后调用父 `Factory`
+ * 4. 如果没有父 `Factory` ，先创建一个 `Injector` ，然后去创建 `PlatformRef` 实例
  *
  * @publicApi
  */
@@ -133,18 +137,16 @@ export function createPlatformFactory(
   const marker = new InjectionToken(desc);
   return (extraProviders: StaticProvider[] = []) => {
     let platform = getPlatform();
-    // 判断是否存在平台实例
+    // 注释：判断是否存在平台实例
     if (!platform || platform.injector.get(ALLOW_MULTIPLE_PLATFORMS, false)) {
       if (parentPlatformFactory) {
-        console.log(66666, name, providers);
-        // 调用父平台方法
+        // 注释：调用父平台方法
         parentPlatformFactory(
             providers.concat(extraProviders).concat({provide: marker, useValue: true}));
       } else {
-        console.log(77777, name, providers);
         const injectedProviders: StaticProvider[] =
             providers.concat(extraProviders).concat({provide: marker, useValue: true});
-        // Injector.create创建平台实例，并获取设置为全局平台实例
+        // 注释：Injector.create创建平台实例，并获取设置为全局平台实例
         createPlatform(Injector.create({providers: injectedProviders, name: desc}));
       }
     }
@@ -302,7 +304,7 @@ export class PlatformRef {
   bootstrapModule<M>(
       moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)|
       Array<CompilerOptions&BootstrapOptions> = []): Promise<NgModuleRef<M>> {
-    const options = optionsReducer({}, compilerOptions);
+    const options = optionsReducer({}, compilerOptions); // 注释：bootstrapModule` 首先通过 `optionsReducer` 递归 reduce 将编译器选项 `compilerOptions` 拍平为对象
     return compileNgModuleFactory(this.injector, options, moduleType)
         .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
   }

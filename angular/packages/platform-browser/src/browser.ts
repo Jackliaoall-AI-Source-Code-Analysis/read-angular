@@ -24,7 +24,7 @@ import {DomSanitizer, DomSanitizerImpl} from './security/dom_sanitization_servic
 
 export const INTERNAL_BROWSER_PLATFORM_PROVIDERS: StaticProvider[] = [
   {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
-  {provide: PLATFORM_INITIALIZER, useValue: initDomAdapter, multi: true},
+  {provide: PLATFORM_INITIALIZER, useValue: initDomAdapter, multi: true}, // 注释：初始化的方法
   {provide: PlatformLocation, useClass: BrowserPlatformLocation, deps: [DOCUMENT]},
   {provide: DOCUMENT, useFactory: _document, deps: []},
 ];
@@ -47,7 +47,7 @@ export const platformBrowser: (extraProviders?: StaticProvider[]) => PlatformRef
     createPlatformFactory(platformCore, 'browser', INTERNAL_BROWSER_PLATFORM_PROVIDERS);
 
 export function initDomAdapter() {
-  BrowserDomAdapter.makeCurrent();
+  BrowserDomAdapter.makeCurrent(); // 注释：确认存在DOM适配器
   BrowserGetTestability.init();
 }
 

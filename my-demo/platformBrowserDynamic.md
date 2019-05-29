@@ -19,23 +19,7 @@ platformBrowserDynamic().bootstrapModule(AppModule)
 
 至于启动项目，都是这一行 `platformBrowserDynamic().bootstrapModule(AppModule)` 开始的。
 
-在 angular 的世界中，所有的app都是由 `bootstrapModule` 根模块或主模块启动的。
-
-Angular 应用是模块化的，它拥有自己的模块化系统，称作 `NgModule`。 
-
-[关于 NgModule](https://www.angular.cn/guide/architecture-modules)
-
-一个 `NgModule` 就是一个容器，用于存放一些内聚的代码块，这些代码块专注于某个应用领域、某个工作流或一组紧密相关的功能。
-
-它可以包含一些组件、服务提供商或其它代码文件，其作用域由包含它们的 `NgModule` 定义。 它还可以导入一些由其它模块中导出的功能，并导出一些指定的功能供其它 `NgModule` 使用。
-
-每个 Angular 应用都至少有一个 `NgModule` 类，也就是根模块，它习惯上命名为 `AppModule`，并位于一个名叫 `app.module.ts` 的文件中。
-
-**引导这个根模块就可以启动你的应用**。
-
-当 bootstrap（引导）根模块之后，`NgModule` 会继而实例化元数据中 `bootstrap`。
-
-[bootstrap 应用的主视图，称为根组件。它是应用中所有其它视图的宿主。只有根模块才应该设置这个 `bootstrap` 属性](https://www.angular.cn/api/core/NgModule#bootstrap)
+在 angular 的世界中，所有的app都是由 `platformBrowserDynamic()` 提供的 `bootstrapModule` 方法引导根模块或主模块启动的。
 
 
 ## platform
@@ -488,9 +472,9 @@ export class PlatformRef {
 
 调用 `platformBrowserDynamic()` 并生成平台实例 `PlatformRef` 时大概经历了这些：
 
-1. 调用 `createPlatformFactory` 合并平台 `browserDynamic` 的 `providers` 并触发父级平台 `coreDynamic` 的平台工厂函数
-2. 调用 `createPlatformFactory` 合并平台 `coreDynamic` 的 `providers` 并触发父级平台 `core` 的平台工厂函数
-3. `coreDynamic` 工厂提供的服务供应商中 **含有：`JitCompilerFactory`，`JitCompilerFactory` 又通过创建 `COMPILER_PROVIDERS` 创建了编译器实例**，所以 **`@angular/platform-browser-dynamic` 提供 JIT运行时 编译**
+1. 调用 `createPlatformFactory` 合并平台 `browserDynamic` 的 `providers` 并触发父级平台 `coreDynamic` 的平台工厂函数 **平台 `browserDynamic` 提供了 `PLATFORM_INITIALIZER` 平台初始化函数和 `BrowserDomAdapter` 全局DOM适配器这个服务供应商**
+2. 调用 `createPlatformFactory` 合并平台 `coreDynamic` 的 `providers` 并触发父级平台 `core` 的平台工厂函数 **平台 `coreDynamic` 提供了 `JitCompilerFactory` 运行时编译器，`JitCompilerFactory` 又通过创建 `COMPILER_PROVIDERS` 创建了编译器实例** 所以 **`@angular/platform-browser-dynamic` 提供 JIT运行时 编译**
+3. **平台 `core` 提供了 `PlatformRef` 平台实例这个服务供应商**
 4. 由于平台 `core` 无父级平台，**调用 `Injector.create` 创建 `PlatformRef` 实例**，并**赋值给全局唯一的平台实例 `_platform`**
 5. 在 `createPlatform` 创建 `PlatformRef` 的时候，实例化一个 `BrowserDomAdapter` 全局DOM适配器 ，具体就是**实现并封装了一些在浏览器端的方法**
 6. 最后断言，确认存在 `PlatformRef` 实例，并返回 `PlatformRef` 实例

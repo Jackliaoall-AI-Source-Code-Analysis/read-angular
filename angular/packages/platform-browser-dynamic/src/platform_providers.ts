@@ -18,7 +18,7 @@ import {ResourceLoaderImpl} from './resource_loader/resource_loader_impl';
  * @publicApi
  */
 export const INTERNAL_BROWSER_DYNAMIC_PLATFORM_PROVIDERS: StaticProvider[] = [
-  INTERNAL_BROWSER_PLATFORM_PROVIDERS,
+  INTERNAL_BROWSER_PLATFORM_PROVIDERS, // 注释：此处会注入初始化的几个方法
   {
     provide: COMPILER_OPTIONS,
     useValue: {providers: [{provide: ResourceLoader, useClass: ResourceLoaderImpl, deps: []}]},

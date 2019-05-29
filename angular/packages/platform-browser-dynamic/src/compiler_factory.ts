@@ -39,7 +39,7 @@ export class CompilerImpl implements Compiler {
       ngModuleCompiler: NgModuleCompiler, summaryResolver: SummaryResolver<Type<any>>,
       compileReflector: CompileReflector, jitEvaluator: JitEvaluator,
       compilerConfig: CompilerConfig, console: Console) {
-    this._delegate = new JitCompiler(
+    this._delegate = new JitCompiler( // 注释：JIT 编译器
         _metadataResolver, templateParser, styleCompiler, viewCompiler, ngModuleCompiler,
         summaryResolver, compileReflector, jitEvaluator, compilerConfig, console,
         this.getExtraNgModuleProviders.bind(this));
@@ -54,7 +54,7 @@ export class CompilerImpl implements Compiler {
   compileModuleSync<T>(moduleType: Type<T>): NgModuleFactory<T> {
     return this._delegate.compileModuleSync(moduleType) as NgModuleFactory<T>;
   }
-  compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>> {
+  compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>> { // 注释：异步创建模块及其子组件
     return this._delegate.compileModuleAsync(moduleType) as Promise<NgModuleFactory<T>>;
   }
   compileModuleAndAllComponentsSync<T>(moduleType: Type<T>): ModuleWithComponentFactories<T> {
@@ -143,7 +143,7 @@ export const COMPILER_PROVIDERS = <StaticProvider[]>[
   { provide: ViewCompiler, deps: [CompileReflector]},
   { provide: NgModuleCompiler, deps: [CompileReflector] },
   { provide: CompilerConfig, useValue: new CompilerConfig()},
-  { provide: Compiler, useClass: CompilerImpl, deps: [Injector, CompileMetadataResolver,
+  { provide: Compiler, useClass: CompilerImpl, deps: [Injector, CompileMetadataResolver, // 注释：JIT时，Compiler的服务供应商 CompilerImpl
                                 TemplateParser, StyleCompiler,
                                 ViewCompiler, NgModuleCompiler,
                                 SummaryResolver, CompileReflector, JitEvaluator, CompilerConfig,
@@ -175,7 +175,7 @@ export class JitCompilerFactory implements CompilerFactory {
   createCompiler(options: CompilerOptions[] = []): Compiler {
     const opts = _mergeOptions(this._defaultOptions.concat(options));
     const injector = Injector.create([
-      COMPILER_PROVIDERS, {
+      COMPILER_PROVIDERS, { // 注释：编译器 Compiler 在这里被替换成 CompilerImpl 
         provide: CompilerConfig,
         useFactory: () => {
           return new CompilerConfig({

@@ -16,5 +16,5 @@ import {JitCompilerFactory} from './compiler_factory';
  */
 export const platformCoreDynamic = createPlatformFactory(platformCore, 'coreDynamic', [
   {provide: COMPILER_OPTIONS, useValue: {}, multi: true},
-  {provide: CompilerFactory, useClass: JitCompilerFactory, deps: [COMPILER_OPTIONS]},
+  {provide: CompilerFactory, useClass: JitCompilerFactory, deps: [COMPILER_OPTIONS]}, // 注释：此处 injector 会被注入jit编译器
 ]);
