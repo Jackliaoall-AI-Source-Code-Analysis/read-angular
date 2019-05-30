@@ -58,7 +58,7 @@ export class JitCompiler {
   }
 
   compileModuleAsync(moduleType: Type): Promise<object> {
-    return Promise.resolve(this._compileModuleAndComponents(moduleType, false)); // 注释：其实 JTI 编译在这部做的
+    return Promise.resolve(this._compileModuleAndComponents(moduleType, false)); // 注释：其实 JTI 编译在这步做的，异步编译模块和组件
   }
 
   compileModuleAndAllComponentsSync(moduleType: Type): ModuleWithComponentFactories {
@@ -103,17 +103,17 @@ export class JitCompiler {
     return ids.map(mod => mod.reference).filter((ref) => !this.hasAotSummary(ref));
   }
 
-  private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> {
-    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {
-      this._compileComponents(moduleType, null);
-      return this._compileModule(moduleType);
+  private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> { // 注释：其实调用的是这步，编译主模块和组件
+    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {  // 注释：先加载模块
+      this._compileComponents(moduleType, null); // 注释：异步有结果之后的回调函数，编译主模块上的所有组件 
+      return this._compileModule(moduleType); // 注释：返回编译后的模块工厂
     });
   }
 
   private _compileModuleAndAllComponents(moduleType: Type, isSync: boolean):
       SyncAsync<ModuleWithComponentFactories> {
     return SyncAsync.then(this._loadModules(moduleType, isSync), () => {
-      const componentFactories: object[] = []; // 注释：异步有结果之后的回调函数，编译主模块上的所有组件
+      const componentFactories: object[] = [];
       this._compileComponents(moduleType, componentFactories);
       return {
         ngModuleFactory: this._compileModule(moduleType),
@@ -122,8 +122,7 @@ export class JitCompiler {
     });
   }
 
-  // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
-  private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> {
+  private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> { // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
     const loading: Promise<any>[] = [];
     const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
     // Note: for runtime compilation, we want to transitively compile all modules,
@@ -144,8 +143,8 @@ export class JitCompiler {
     return SyncAsync.all(loading);
   }
 
-  private _compileModule(moduleType: Type): object {
-    let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !;
+  private _compileModule(moduleType: Type): object { // 注释：angular 会用 Map 缓存模块工厂，并且在需要返回编译的模块工厂时，优先去缓存中寻找已经被编译过的模块工厂
+    let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !; // 注释：读取缓存
     if (!ngModuleFactory) {
       const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
       // Always provide a bound Compiler
@@ -156,13 +155,14 @@ export class JitCompiler {
           ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
       this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);
     }
+    console.log(77777777, ngModuleFactory);
     return ngModuleFactory;
   }
 
   /**
    * @internal
    */
-  _compileComponents(mainModule: Type, allComponentFactories: object[]|null) { // 注释：编译主模块上的所有组件
+  _compileComponents(mainModule: Type, allComponentFactories: object[]|null) { // 注释：编译主模块上的所有组件和指令
     const ngModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
     const moduleByJitDirective = new Map<any, CompileNgModuleMetadata>();
     const templates = new Set<CompiledTemplate>();

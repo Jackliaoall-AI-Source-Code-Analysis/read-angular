@@ -44,7 +44,7 @@ function compileNgModuleFactory__PRE_R3__<M>(
     moduleType: Type<M>): Promise<NgModuleFactory<M>> {
   const compilerFactory: CompilerFactory = injector.get(CompilerFactory); // 注释：其实就是平台coreDynamic 的服务商 JitCompilerFactory
   const compiler = compilerFactory.createCompiler([options]); // 注释：创建 JitCompilerFactory 编译器实例
-  return compiler.compileModuleAsync(moduleType); // 注释：异步创建 ngmodule 模块
+  return compiler.compileModuleAsync(moduleType); // 注释：异步创建 ngmodule 模块工厂
 }
 
 export function compileNgModuleFactory__POST_R3__<M>(
@@ -306,7 +306,7 @@ export class PlatformRef {
       Array<CompilerOptions&BootstrapOptions> = []): Promise<NgModuleRef<M>> {
     const options = optionsReducer({}, compilerOptions); // 注释：bootstrapModule` 首先通过 `optionsReducer` 递归 reduce 将编译器选项 `compilerOptions` 拍平为对象
     return compileNgModuleFactory(this.injector, options, moduleType)
-        .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
+        .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options)); // 注释：这里获取到编译后的模块工厂，然后返回给 bootstrapModuleFactory创建模块
   }
 
   private _moduleDoBootstrap(moduleRef: InternalNgModuleRef<any>): void {

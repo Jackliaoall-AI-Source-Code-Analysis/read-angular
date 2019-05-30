@@ -24,22 +24,6 @@ Angular 应用是模块化的，它拥有自己的模块化系统，称作 `NgMo
 > angular/packages/core/src/application_ref.ts
 
 ```typescript
-/**
- * Creates an instance of an `@NgModule` for a given platform using the given runtime compiler.
- *
- * @usageNotes
- * ### Simple Example
- *
- * ```typescript
- * @NgModule({
- *   imports: [BrowserModule]
- * })
- * class MyModule {}
- *
- * let moduleRef = platformBrowser().bootstrapModule(MyModule);
- * ```
- *
- */
 bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)| Array<CompilerOptions&BootstrapOptions> = []):Promise<NgModuleRef<M>> {
   const options = optionsReducer({}, compilerOptions);
   return compileNgModuleFactory(this.injector, options, moduleType)
@@ -89,7 +73,7 @@ function compileNgModuleFactory__PRE_R3__<M>(
 `compileNgModuleFactory` 在这里其实就是 `compileNgModuleFactory__PRE_R3__`
 
 1. 在这里，先**通过平台实例 `PlatformRef` 的注射器 `injector` 获取了编译器实例，其实也就是 `coreDynamic` 提供的 `JitCompilerFactory`**
-2. 然后调用 JIT 编译器 `JitCompilerFactory` 的 `createCompiler` 方法，创建编译器 `Compiler` 实例 `CompilerImpl`
+2. 然后调用 JIT 编译器工厂 `JitCompilerFactory` 的 `createCompiler` 方法，创建编译器 `Compiler` 实例 `CompilerImpl`
 3. 最后通过编译器 `Compiler` 实例 `CompilerImpl` **异步编译给定的 `NgModule` 及其所有组件**
 
 `coreDynamic` 提供的 `JitCompilerFactory` 调用 `createCompiler` 创建编译器实例的时候，其实是在这里注入了服务供应商 `CompilerImpl`，
@@ -130,9 +114,9 @@ export class CompilerImpl implements Compiler {
 }
 ```
 
-所以 `compileNgModuleFactory` 在异步创建模块和组件  `compiler.compileModuleAsync(moduleType)` 时，其实调用的是 `CompilerImpl` 实例 的 `compileModuleAsync`。
+所以 `compileNgModuleFactory` 在异步创建模块工厂和组件  `compiler.compileModuleAsync(moduleType)` 时，其实调用的是 `CompilerImpl` 实例 的 `compileModuleAsync`。
 
-而在 JTT 编译器实例化的时候，会实例一个 `JitCompiler`，所以实际上**异步创建模块和组件这个方法具体是由 `JitCompiler` 实例的方法 `compileModuleAsync` 执行**的：
+而在 JTT 编译器实例化的时候，会实例一个 `JitCompiler`，所以实际上**异步创建模块工厂和组件这个方法具体是由 `JitCompiler` 实例的方法 `compileModuleAsync` 执行**的：
 
 > angular/packages/compiler/src/jit/compiler.ts
 
@@ -153,32 +137,152 @@ export class JitCompiler {
       private _compilerConfig: CompilerConfig, private _console: Console,
       private getExtraNgModuleProviders: (ngModule: any) => CompileProviderMetadata[]) {}
 
-  compileModuleSync(moduleType: Type): object {
-    return SyncAsync.assertSync(this._compileModuleAndComponents(moduleType, true));
+  compileModuleAsync(moduleType: Type): Promise<object> {
+    return Promise.resolve(this._compileModuleAndComponents(moduleType, false)); // 注释：其实 JTI 编译在这步做的
   }
 
-  private _compileModuleAndAllComponents(moduleType: Type, isSync: boolean):
-      SyncAsync<ModuleWithComponentFactories> {
+  private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> {
     return SyncAsync.then(this._loadModules(moduleType, isSync), () => {
-      const componentFactories: object[] = [];
-      this._compileComponents(moduleType, componentFactories);
-      return {
-        ngModuleFactory: this._compileModule(moduleType),
-        componentFactories: componentFactories
-      };
+      this._compileComponents(moduleType, null);
+      return this._compileModule(moduleType);
     });
   }
 }
 ```
 
-`compileModuleSync` 创建了一个 `promise`，然后调用了 `_compileModuleAndAllComponents`。
+`compileModuleAsync` 调用了 `_compileModuleAndComponents`，并返回一个 `Promise`。
 
 这里逻辑比较复杂，大概讲下，具体的大家可以看 angular 的源代码，很好理解：
 
-1. 私有方法 `_compileModuleAndAllComponents` 先**调用了 `this._loadModules` ，异步加载解析主模块，也就是 `bootstrapModule` 的 `ngModule`**
-2. 在异步加载主模块之后，执行后面的回调函数，**编译主模块上的所有组件**
+1. 私有方法 `_compileModuleAndComponents` 先**调用了 `this._loadModules`**，异步加载解析主模块，也就是 `bootstrapModule` 的 `ngModule`
+2. 在异步加载主模块之后，执行后面的回调函数，通过私有方法 `_compileComponents` **编译主模块上的所有组件和指令**，并通过 `_compileTemplate` 编译模板，这步先跳过，感兴趣可以自行去看
+3. 最后通过私有方法 `_compileModule` 返回value 是编译过的模块工厂的 `Promise`
+4. `Promise` 会调用下面的异步方法 `then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options))`
 
+这里**有个地方也很有意思**，官网上的[模块常见问题](https://www.angular.cn/guide/ngmodule-faq)上有这样的一个问题：
+
+[如果我两次导入同一个模块会怎么样？](https://www.angular.cn/guide/ngmodule-faq#what-if-i-import-the-same-module-twice)
+
+答案里有一句：当三个模块全都导入模块'A'时，Angular 只会首次遇到时加载一次模块'A'，之后就不会这么做了，之前一直不知道为什么，这次看到了这样的一段代码：
+
+> angular/packages/compiler/src/jit/compiler.ts
+
+```typescript
+private _compileModule(moduleType: Type): object { // 注释：从缓存中获得编译过的模块
+ let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !;
+ if (!ngModuleFactory) {
+   const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
+   // Always provide a bound Compiler
+   const extraProviders = this.getExtraNgModuleProviders(moduleMeta.type.reference);
+   const outputCtx = createOutputContext();
+   const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
+   ngModuleFactory = this._interpretOrJit(
+       ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
+   this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);
+ }
+ return ngModuleFactory;
+}
+```
+
+**angular 会用 `Map` 缓存模块，并且在需要返回编译的模块工厂时，优先去缓存中寻找已经被编译过的模块**
+
+
+## bootstrapModuleFactory
+
+> angular/packages/core/src/application_ref.ts
+
+```typescript
+bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)| Array<CompilerOptions&BootstrapOptions> = []):Promise<NgModuleRef<M>> {
+  const options = optionsReducer({}, compilerOptions);
+  return compileNgModuleFactory(this.injector, options, moduleType)
+      .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
+}
+```
+
+回一下上面，`bootstrapModule` 方法调用了 `compileNgModuleFactory` 返回一个 value 是 `ngModuleFactory` 模块工厂的 `Promise`，
+
+接下来在 `Promise` 的 `then` 方法里调用了 `bootstrapModuleFactory`。
+
+> angular/packages/core/src/application_ref.ts
+
+```typescript
+bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions):
+   Promise<NgModuleRef<M>> {
+ // Note: We need to create the NgZone _before_ we instantiate the module,
+ // as instantiating the module creates some providers eagerly.
+ // So we create a mini parent injector that just contains the new NgZone and
+ // pass that as parent to the NgModuleFactory.
+ const ngZoneOption = options ? options.ngZone : undefined;
+ const ngZone = getNgZone(ngZoneOption);
+ const providers: StaticProvider[] = [{provide: NgZone, useValue: ngZone}];
+ // Attention: Don't use ApplicationRef.run here,
+ // as we want to be sure that all possible constructor calls are inside `ngZone.run`!
+ return ngZone.run(() => {
+   const ngZoneInjector = Injector.create(
+       {providers: providers, parent: this.injector, name: moduleFactory.moduleType.name});
+   const moduleRef = <InternalNgModuleRef<M>>moduleFactory.create(ngZoneInjector);
+   const exceptionHandler: ErrorHandler = moduleRef.injector.get(ErrorHandler, null);
+   if (!exceptionHandler) {
+     throw new Error('No ErrorHandler. Is platform module (BrowserModule) included?');
+   }
+   moduleRef.onDestroy(() => remove(this._modules, moduleRef));
+   ngZone !.runOutsideAngular(
+       () => ngZone !.onError.subscribe(
+           {next: (error: any) => { exceptionHandler.handleError(error); }}));
+   return _callAndReportToErrorHandler(exceptionHandler, ngZone !, () => {
+     const initStatus: ApplicationInitStatus = moduleRef.injector.get(ApplicationInitStatus);
+     initStatus.runInitializers();
+     return initStatus.donePromise.then(() => {
+       this._moduleDoBootstrap(moduleRef);
+       return moduleRef;
+     });
+   });
+ });
+}
+```
+
+这里做的事情也不多：
+
+1. 首先获判断下是否存在配置，**默认我们启动的时候没有配置**，所以返回的是 `NgZone` （`NgZone`放到下一节讲）：
+
+> angular/packages/core/src/application_ref.ts
+
+```typescript
+function getNgZone(ngZoneOption?: NgZone | 'zone.js' | 'noop'): NgZone {
+  let ngZone: NgZone;
+
+  if (ngZoneOption === 'noop') {
+    ngZone = new NoopNgZone();
+  } else {
+    ngZone = (ngZoneOption === 'zone.js' ? undefined : ngZoneOption) ||
+        new NgZone({enableLongStackTrace: isDevMode()});
+  }
+  return ngZone;
+}
+```
+
+2. 接下来 angualr 创建了一个包含 ngZone 的 `providers`，作为根模块的父注入器
+
+> angular/packages/core/src/application_ref.ts
+
+```typescript
+const ngZoneInjector = Injector.create(
+       {providers: providers, parent: this.injector, name: moduleFactory.moduleType.name});
+   const moduleRef = <InternalNgModuleRef<M>>moduleFactory.create(ngZoneInjector);
+```
+
+3. 调用 `ngZone.run` ，启动 `ngZone` 并**让所有的 angular 程序跑在这个 `zone` 上下文环境里**
+4. 在 `ngZone.run` 启动 zone 之后，创建一个初始的注入器，并使用该注入器作为根模块的父注入器创建根模块实例
+5. 处理错误并返回
 
 
 ## 总结
 
+这里面内容不多，用人话总结下：
+
+1. `bootstrapModule` 会先合并配置并调用编译模块的工厂函数 `compileNgModuleFactory` 开始编译模块
+2. `compileNgModuleFactory` 通过平台实例 `PlatformRef` 的注射器 `injector` 获取 JIT编译器工厂 `JitCompilerFactory`，JIT 编译器工厂 `JitCompilerFactory` 又通过 `createCompiler` 方法，创建编译器 `Compiler` 实例 `CompilerImpl`，并开始编译根模块和所有的组件，`CompilerImpl` 调用 `JitCompiler` JIT 编译实例 **最后实际上编译是`JitCompiler`去编译的**
+3. **异步编译根模块和所有的组件**，**并放入缓存中**，最后返回 value 是模块工厂 `NgModuleFactory` 的 `Promise`
+4. 然后在 `Promise.then()` 里调用 `bootstrapModuleFactory`
+5. `bootstrapModuleFactory` **创建 NgZone 实例并开始运行 zone** ，**让所有的 angular 程序跑在这个 `zone` 上下文环境里**
+6. 开始运行 zone ，**创建根模块的父注入器 `injector` 并实例化模块工厂创建模块实例 `NgModuleRef`**
