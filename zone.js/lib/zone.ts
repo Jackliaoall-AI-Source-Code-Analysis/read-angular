@@ -292,7 +292,7 @@ interface ZoneType {
    * the current zone is by invoking a run() method, which will update the current zone for the
    * duration of the run method callback.
    */
-  current: Zone;
+  current: Zone; // 注释：当前的 zone 只能通过 zone.run() 来更改
 
   /**
    * @returns {Task} The task associated with the current execution.
@@ -704,7 +704,7 @@ const Zone: ZoneType = (function(global: any) {
   class Zone implements AmbientZone {
     static __symbol__: (name: string) => string = __symbol__;
 
-    static assertZonePatched() { // 注释：确认是否已经上过补丁
+    static assertZonePatched() { // 注释：确认是否已经上过zone补丁
       if (global['Promise'] !== patches['ZoneAwarePromise']) {
         throw new Error(
             'Zone.js has detected that ZoneAwarePromise `(window|global).Promise` ' +
@@ -730,7 +730,7 @@ const Zone: ZoneType = (function(global: any) {
     static get currentTask(): Task|null {
       return _currentTask;
     }
-
+    // 注释：通过该方法进行猴子补丁
     static __load_patch(name: string, fn: _PatchFn): void {
       if (patches.hasOwnProperty(name)) {
         if (checkDuplicate) {
@@ -1409,6 +1409,7 @@ const Zone: ZoneType = (function(global: any) {
     _redefineProperty: () => noop,
     patchCallbacks: () => noop
   };
+  // 注释：执行的时候会创建一个 `parent` 和 `zoneSpec` 都是 `null`，并且 `name` 是 `<root>` 的 `Zone` 实例
   let _currentZoneFrame: _ZoneFrame = {parent: null, zone: new Zone(null, null)};
   let _currentTask: Task|null = null;
   let _numberOfNestedTaskFrames = 0;

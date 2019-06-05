@@ -120,7 +120,7 @@ export class NgZone {
       throw new Error(`In this configuration Angular requires Zone.js`);
     }
 
-    Zone.assertZonePatched();
+    Zone.assertZonePatched(); // 注释：确认是否已经上过zone补丁
     const self = this as any as NgZonePrivate;
     self._nesting = 0;
 
