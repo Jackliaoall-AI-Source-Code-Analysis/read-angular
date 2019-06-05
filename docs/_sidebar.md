@@ -1,3 +1,4 @@
 - 启动app
   - [平台实例](platformBrowserDynamic)
   - [引导模块](bootstrapModule)
+  - [ng-zone](ngZone)
