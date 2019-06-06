@@ -759,9 +759,11 @@ const Zone: ZoneType = (function(global: any) {
     private _zoneDelegate: ZoneDelegate;
 
     constructor(parent: Zone|null, zoneSpec: ZoneSpec|null) {
+      // 注释：zoneSpec 就是 fork的时候那个配置对象
       this._parent = parent;
       this._name = zoneSpec ? zoneSpec.name || 'unnamed' : '<root>';
       this._properties = zoneSpec && zoneSpec.properties || {};
+      // 注释：实现 zone 代理
       this._zoneDelegate =
           new ZoneDelegate(this, this._parent && this._parent._zoneDelegate, zoneSpec);
     }
@@ -782,6 +784,7 @@ const Zone: ZoneType = (function(global: any) {
       return null;
     }
 
+    // 注释：fork 出子zone， zoneSpec 就是那一大堆配置
     public fork(zoneSpec: ZoneSpec): AmbientZone {
       if (!zoneSpec) throw new Error('ZoneSpec required!');
       return this._zoneDelegate.fork(this, zoneSpec);
@@ -798,6 +801,7 @@ const Zone: ZoneType = (function(global: any) {
       } as any as T;
     }
 
+    // 注释：通过this._zoneDelegate.invoke执行一个函数
     public run(callback: Function, applyThis?: any, applyArgs?: any[], source?: string): any;
     public run<T>(
         callback: (...args: any[]) => T, applyThis?: any, applyArgs?: any[], source?: string): T {
@@ -1025,6 +1029,7 @@ const Zone: ZoneType = (function(global: any) {
     private _hasTaskCurrZone: Zone|null;
 
     constructor(zone: Zone, parentDelegate: ZoneDelegate|null, zoneSpec: ZoneSpec|null) {
+      // 注释：zoneSpec 就是 fork的时候那个配置对象
       this.zone = zone;
       this._parentDelegate = parentDelegate;
 
@@ -1105,6 +1110,7 @@ const Zone: ZoneType = (function(global: any) {
     }
 
     fork(targetZone: Zone, zoneSpec: ZoneSpec): AmbientZone {
+      // 注释：如果有 onFork 钩子就执行
       return this._forkZS ? this._forkZS.onFork!(this._forkDlgt!, this.zone, targetZone, zoneSpec) :
                             new Zone(targetZone, zoneSpec);
     }
@@ -1119,6 +1125,7 @@ const Zone: ZoneType = (function(global: any) {
     invoke(
         targetZone: Zone, callback: Function, applyThis: any, applyArgs?: any[],
         source?: string): any {
+          console.log(55555, this._invokeZS);
       return this._invokeZS ? this._invokeZS.onInvoke!
                               (this._invokeDlgt!, this._invokeCurrZone!, targetZone, callback,
                                applyThis, applyArgs, source) :
@@ -1373,7 +1380,7 @@ const Zone: ZoneType = (function(global: any) {
   const microTask: 'microTask' = 'microTask', macroTask: 'macroTask' = 'macroTask',
                    eventTask: 'eventTask' = 'eventTask';
 
-  const patches: {[key: string]: any} = {};
+  const patches: {[key: string]: any} = {}; // 注释：补丁的存放地，可以用来判断是否打过补丁
   const _api: _ZonePrivate = {
     symbol: __symbol__,
     currentZoneFrame: () => _currentZoneFrame,

@@ -124,7 +124,7 @@ export class NgZone {
     const self = this as any as NgZonePrivate;
     self._nesting = 0;
 
-    self._outer = self._inner = Zone.current;
+    self._outer = self._inner = Zone.current; // 注释：此时是 root zone
 
     if ((Zone as any)['wtfZoneSpec']) {
       self._inner = self._inner.fork((Zone as any)['wtfZoneSpec']);
@@ -251,6 +251,7 @@ function checkStable(zone: NgZonePrivate) {
   }
 }
 
+// 注释：zone 是 `Zone.current` 此时是 root zone
 function forkInnerZoneWithAngularBehavior(zone: NgZonePrivate) {
   zone._inner = zone._inner.fork({
     name: 'angular',
@@ -265,10 +266,11 @@ function forkInnerZoneWithAngularBehavior(zone: NgZonePrivate) {
       }
     },
 
-
+    // 注释：启动 ngZone的 run
     onInvoke: (delegate: ZoneDelegate, current: Zone, target: Zone, callback: Function,
                applyThis: any, applyArgs: any[], source: string): any => {
       try {
+        console.log(33333, current, target);
         onEnter(zone);
         return delegate.invoke(target, callback, applyThis, applyArgs, source);
       } finally {

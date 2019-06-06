@@ -263,6 +263,7 @@ export class PlatformRef {
     // Attention: Don't use ApplicationRef.run here,
     // as we want to be sure that all possible constructor calls are inside `ngZone.run`!
     return ngZone.run(() => {
+      // 注释：会被 onInvoke 执行
       const ngZoneInjector = Injector.create(
           {providers: providers, parent: this.injector, name: moduleFactory.moduleType.name});
       const moduleRef = <InternalNgModuleRef<M>>moduleFactory.create(ngZoneInjector);

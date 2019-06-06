@@ -1,5 +1,7 @@
 ## 引导模块
 
+[直接看人话总结](#总结)
+
 Angular 应用是模块化的，它拥有自己的模块化系统，称作 `NgModule`。 
 
 [关于 NgModule](https://www.angular.cn/guide/architecture-modules)

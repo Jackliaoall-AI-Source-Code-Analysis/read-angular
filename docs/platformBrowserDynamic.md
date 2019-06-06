@@ -1,5 +1,7 @@
 ## 启动app
 
+[直接看人话总结](#总结)
+
 在浏览器端，每个 angular app都是从 `main.ts` 开始的。
 
 ```typescript
