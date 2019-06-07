@@ -1,10 +1,10 @@
-## angular触发脏检查
+## angular触发脏检查的历程
 
 [直接看人话总结](#总结)
 
 angularjs 时代，通过触发 `$scope.$apply` `$scope.$digest` 来通知进行脏检查并更新视图。
 
-从 angularjs 的行为中，谷歌大佬们发现，所有的视图变更都来自于下面集中行为：
+从 angularjs 的行为中，谷歌大佬们发现，所有的视图变更都来自于下面几种行为：
 
 1. 浏览器事件：`onclick`, `onmouseover`, `onkeyup`
 2. 定时器：`setInterval`, `setTimeout`, `setImmediate`

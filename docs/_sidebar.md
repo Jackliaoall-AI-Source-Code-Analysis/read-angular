@@ -1,4 +1,4 @@
 - 启动app
   - [平台实例](platformBrowserDynamic)
   - [引导模块](bootstrapModule)
-  - [初始化ngZone](initNgZone)
+  - [初始化zone](initZone)
