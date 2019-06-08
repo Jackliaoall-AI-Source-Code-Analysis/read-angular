@@ -1,6 +1,6 @@
-## angular触发脏检查的历程
-
 [直接看人话总结](#总结)
+
+## angular触发脏检查的历程
 
 angularjs 时代，通过触发 `$scope.$apply` `$scope.$digest` 来通知进行脏检查并更新视图。
 
