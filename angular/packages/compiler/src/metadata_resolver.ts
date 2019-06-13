@@ -695,7 +695,7 @@ export class CompileMetadataResolver {
     entryComponents.forEach((id) => transitiveModule.addEntryComponent(id));
     providers.forEach((provider) => transitiveModule.addProvider(provider, compileMeta !.type));
     transitiveModule.addModule(compileMeta.type);
-    this._ngModuleCache.set(moduleType, compileMeta);
+    this._ngModuleCache.set(moduleType, compileMeta); // 注释：设置模块缓存
     return compileMeta;
   }
 

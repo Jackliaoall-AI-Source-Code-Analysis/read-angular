@@ -308,7 +308,10 @@ export interface NgModule {
  * @publicApi
  */
 export const NgModule: NgModuleDecorator = makeDecorator(
-    'NgModule', (ngModule: NgModule) => ngModule, undefined, undefined,
+    'NgModule',
+    (ngModule: NgModule) => ngModule, // 注释：ngModule 就是装饰器的参数
+    undefined,
+    undefined,
     /**
      * Decorator that marks the following class as an NgModule, and supplies
      * configuration metadata for it.

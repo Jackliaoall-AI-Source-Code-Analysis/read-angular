@@ -2,3 +2,4 @@
   - [平台实例](platformBrowserDynamic)
   - [引导模块](bootstrapModule)
   - [初始化zone](initZone)
+  - [angular模块](ngModule)

@@ -43,28 +43,29 @@ export const PROP_METADATA = '__prop__metadata__';
  * @suppress {globalThis}
  */
 export function makeDecorator<T>(
-    name: string, props?: (...args: any[]) => any, parentClass?: any,
-    additionalProcessing?: (type: Type<T>) => void,
-    typeFn?: (type: Type<T>, ...args: any[]) => void):
-    {new (...args: any[]): any; (...args: any[]): any; (...args: any[]): (cls: any) => any;} {
+    name: string, 
+    props?: (...args: any[]) => any, // 注释：args 就是装饰器的参数用来处理装饰器参数
+    parentClass?: any,
+    additionalProcessing?: (type: Type<T>) => void, // 注释：额外的处理
+    typeFn?: (type: Type<T>, ...args: any[]) => void) // 注释：用来处理class的原型
+: {new (...args: any[]): any; (...args: any[]): any; (...args: any[]): (cls: any) => any;} {
   const metaCtor = makeMetadataCtor(props);
 
   function DecoratorFactory(...args: any[]): (cls: Type<T>) => any {
-    if (this instanceof DecoratorFactory) {
-      metaCtor.call(this, ...args);
+    if (this instanceof DecoratorFactory) { // 注释：通过 args 用来设置默认值 
+      metaCtor.call(this, ...args); // 注释：this就是DecoratorFactory工厂，也就是参数对象
       return this;
     }
 
-    const annotationInstance = new (DecoratorFactory as any)(...args);
-    return function TypeDecorator(cls: Type<T>) {
+    const annotationInstance = new (DecoratorFactory as any)(...args); // 注释：注解实例实际上就是装饰器的参数对象
+    return function TypeDecorator(cls: Type<T>) { // 注释：cls就是装饰器装饰的类构造函数
       if (typeFn) typeFn(cls, ...args);
       // Use of Object.defineProperty is important since it creates non-enumerable property which
       // prevents the property is copied during subclassing.
       const annotations = cls.hasOwnProperty(ANNOTATIONS) ?
           (cls as any)[ANNOTATIONS] :
           Object.defineProperty(cls, ANNOTATIONS, {value: []})[ANNOTATIONS];
-      annotations.push(annotationInstance);
-
+      annotations.push(annotationInstance); // 注释：将装饰器的处理结果存在
 
       if (additionalProcessing) additionalProcessing(cls);
 
@@ -76,7 +77,7 @@ export function makeDecorator<T>(
     DecoratorFactory.prototype = Object.create(parentClass.prototype);
   }
 
-  DecoratorFactory.prototype.ngMetadataName = name;
+  DecoratorFactory.prototype.ngMetadataName = name; // 注释：装饰器名称会被放在原型属性 ngMetadataName 上
   (DecoratorFactory as any).annotationCls = DecoratorFactory;
   return DecoratorFactory as any;
 }

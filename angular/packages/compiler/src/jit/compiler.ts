@@ -124,7 +124,8 @@ export class JitCompiler {
 
   private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> { // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
     const loading: Promise<any>[] = [];
-    const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
+    const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !; // 注释：从元数据中获得根模块
+    console.log(4444444, mainNgModule);
     // Note: for runtime compilation, we want to transitively compile all modules,
     // so we also need to load the declared directives / pipes for all nested modules.
     this._filterJitIdentifiers(mainNgModule.transitiveModule.modules).forEach((nestedNgModule) => {
@@ -155,7 +156,6 @@ export class JitCompiler {
           ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
       this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);
     }
-    console.log(77777777, ngModuleFactory);
     return ngModuleFactory;
   }
 
