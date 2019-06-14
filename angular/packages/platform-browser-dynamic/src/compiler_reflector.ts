@@ -34,7 +34,7 @@ export class JitReflector implements CompileReflector {
   }
   tryAnnotations(typeOrFunc: /*Type*/ any): any[] { return this.annotations(typeOrFunc); }
   annotations(typeOrFunc: /*Type*/ any): any[] {
-    return this.reflectionCapabilities.annotations(typeOrFunc);
+    return this.reflectionCapabilities.annotations(typeOrFunc); // 注释：获取类的ANNOTATIONS
   }
   shallowAnnotations(typeOrFunc: /*Type*/ any): any[] {
     throw new Error('Not supported in JIT mode');

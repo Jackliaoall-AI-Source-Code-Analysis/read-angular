@@ -97,15 +97,29 @@ export class JitCompiler {
     }
   }
 
+  // 注释：过滤带有 AOT 的模块
   hasAotSummary(ref: Type) { return !!this._summaryResolver.resolveSummary(ref); }
 
+  // 注释：过滤带有 AOT 的模块
   private _filterJitIdentifiers(ids: CompileIdentifierMetadata[]): any[] {
     return ids.map(mod => mod.reference).filter((ref) => !this.hasAotSummary(ref));
   }
-
+  /**
+   * 注释：做了三件事:
+   * 
+   * 1. 加载模块 `this._loadModules`
+   * 2. 编译入口组件 `this._compileComponents`
+   * 3. 编译模块 `this._compileModule`
+   *
+   * @private
+   * @param {Type} moduleType 模块类
+   * @param {boolean} isSync false 异步
+   * @returns {SyncAsync<object>}
+   * @memberof JitCompiler
+   */
   private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> { // 注释：其实调用的是这步，编译主模块和组件
     return SyncAsync.then(this._loadModules(moduleType, isSync), () => {  // 注释：先加载模块
-      this._compileComponents(moduleType, null); // 注释：异步有结果之后的回调函数，编译主模块上的所有组件 
+      this._compileComponents(moduleType, null); // 注释：异步有结果之后的回调函数，编译主模块上的所有入口组件 
       return this._compileModule(moduleType); // 注释：返回编译后的模块工厂
     });
   }
@@ -124,14 +138,18 @@ export class JitCompiler {
 
   private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> { // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
     const loading: Promise<any>[] = [];
-    const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !; // 注释：从元数据中获得根模块
+    // 注释：从元数据中获得根模块的 __annotations__ 并格式化
+    const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
     console.log(4444444, mainNgModule);
+    // 注释：异步编译全部指令组件和和管道的元数据
     // Note: for runtime compilation, we want to transitively compile all modules,
     // so we also need to load the declared directives / pipes for all nested modules.
+    // 注释：过滤掉根模块元数据中的 AOT 模块
     this._filterJitIdentifiers(mainNgModule.transitiveModule.modules).forEach((nestedNgModule) => {
       // getNgModuleMetadata only returns null if the value passed in is not an NgModule
       const moduleMeta = this._metadataResolver.getNgModuleMetadata(nestedNgModule) !;
       this._filterJitIdentifiers(moduleMeta.declaredDirectives).forEach((ref) => {
+        // 注释：异步编译全部指令组件和和管道
         const promise =
             this._metadataResolver.loadDirectiveMetadata(moduleMeta.type.reference, ref, isSync);
         if (promise) {

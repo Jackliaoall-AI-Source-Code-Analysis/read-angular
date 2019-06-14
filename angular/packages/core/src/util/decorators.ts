@@ -74,7 +74,7 @@ export function makeDecorator<T>(
   }
 
   if (parentClass) {
-    DecoratorFactory.prototype = Object.create(parentClass.prototype);
+    DecoratorFactory.prototype = Object.create(parentClass.prototype); // 注释：使实例 DecoratorFactory 继承继承 parentClass
   }
 
   DecoratorFactory.prototype.ngMetadataName = name; // 注释：装饰器名称会被放在原型属性 ngMetadataName 上

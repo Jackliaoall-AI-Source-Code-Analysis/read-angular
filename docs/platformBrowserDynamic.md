@@ -245,6 +245,8 @@ export const platformCoreDynamic = createPlatformFactory(platformCore, 'coreDyna
 2. 平台名 `coreDynamic`
 3. 2个静态服务提供者：编译选项 `COMPILER_OPTIONS` 和 `platformDynamic` 的[JIT](https://www.angular.cn/guide/aot-compiler#angular-compilation)编译器工厂 `JitCompilerFactory`
 
+### JitCompilerFactory
+
 **重点来了**
 
 一起看下 `JitCompilerFactory` ：

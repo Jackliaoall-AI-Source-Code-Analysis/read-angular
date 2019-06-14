@@ -154,7 +154,7 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
 
     // API for metadata created by invoking the decorators.
     if (typeOrFunc.hasOwnProperty(ANNOTATIONS)) {
-      return (typeOrFunc as any)[ANNOTATIONS];
+      return (typeOrFunc as any)[ANNOTATIONS]; // 注释：获取构造模块的时候产生的注解数据
     }
     return null;
   }
@@ -164,7 +164,7 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
       return [];
     }
     const parentCtor = getParentCtor(typeOrFunc);
-    const ownAnnotations = this._ownAnnotations(typeOrFunc, parentCtor) || [];
+    const ownAnnotations = this._ownAnnotations(typeOrFunc, parentCtor) || []; // 注释：获取类的 ANNOTATIONS
     const parentAnnotations = parentCtor !== Object ? this.annotations(parentCtor) : [];
     return parentAnnotations.concat(ownAnnotations);
   }

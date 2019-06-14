@@ -43,8 +43,8 @@ function compileNgModuleFactory__PRE_R3__<M>(
     injector: Injector, options: CompilerOptions,
     moduleType: Type<M>): Promise<NgModuleFactory<M>> {
   const compilerFactory: CompilerFactory = injector.get(CompilerFactory); // 注释：其实就是平台coreDynamic 的服务商 JitCompilerFactory
-  const compiler = compilerFactory.createCompiler([options]); // 注释：创建 JitCompilerFactory 编译器实例
-  return compiler.compileModuleAsync(moduleType); // 注释：异步创建 ngmodule 模块工厂
+  const compiler = compilerFactory.createCompiler([options]); // 注释：调用 JitCompilerFactory 创建编译器实例 CompilerImpl
+  return compiler.compileModuleAsync(moduleType); // 注释：异步创建 ngmodule 模块工厂 （CompilerImpl 通过代理 CompilerImpl 去编译）
 }
 
 export function compileNgModuleFactory__POST_R3__<M>(

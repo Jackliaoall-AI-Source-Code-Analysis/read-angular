@@ -18,4 +18,4 @@ import { AppComponent } from './app.component';
 export class AppModule { }
 
 // 注释：(AppModule as any).__annotations__ 就是注解实例
-// console.log(66666, (AppModule as any).__annotations__);
+console.log('AppModule.__annotations__', (AppModule as any).__annotations__);

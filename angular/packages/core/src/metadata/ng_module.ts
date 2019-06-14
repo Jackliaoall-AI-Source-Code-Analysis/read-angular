@@ -324,7 +324,7 @@ export const NgModule: NgModuleDecorator = makeDecorator(
      * this module's members available to others.
      */
     (type: NgModuleType, meta: NgModule) => SWITCH_COMPILE_NGMODULE(type, meta));
-
+console.log(111111, NgModule);
 /**
  * @description
  * Hook for manual bootstrapping of the application instead of using bootstrap array in @NgModule

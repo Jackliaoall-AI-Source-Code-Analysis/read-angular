@@ -38,6 +38,8 @@ bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&Bootst
 1. `moduleType: Type<M>` 根模块
 2. `compilerOptions: (CompilerOptions&BootstrapOptions)| Array<CompilerOptions&BootstrapOptions> = []` 编译器选项，默认是空数组
 
+### Type<M>
+
 这里有个很有意思的 typescript 写法：`Type<M>`：
 
 > angular/packages/core/src/interface/type.ts
@@ -78,7 +80,7 @@ function compileNgModuleFactory__PRE_R3__<M>(
 2. 然后调用 JIT 编译器工厂 `JitCompilerFactory` 的 `createCompiler` 方法，创建编译器 `Compiler` 实例 `CompilerImpl`
 3. 最后通过编译器 `Compiler` 实例 `CompilerImpl` **异步编译给定的 `NgModule` 及其所有组件**
 
-`coreDynamic` 提供的 `JitCompilerFactory` 调用 `createCompiler` 创建编译器实例的时候，其实是在这里注入了服务供应商 `CompilerImpl`，
+`coreDynamic` 提供的 `JitCompilerFactory` 调用 `createCompiler` **创建编译器实例 `Compiler` 的时候，其实是在这里注入的服务供应商 `CompilerImpl`**，
 
 **所以最后创建了的编译器实例 `Compiler` 其实是 `CompilerImpl`**。
 
@@ -118,7 +120,9 @@ export class CompilerImpl implements Compiler {
 
 所以 `compileNgModuleFactory` 在异步创建模块工厂和组件  `compiler.compileModuleAsync(moduleType)` 时，其实调用的是 `CompilerImpl` 实例 的 `compileModuleAsync`。
 
-而在 JTT 编译器实例化的时候，会实例一个 `JitCompiler`，所以实际上**异步创建模块工厂和组件这个方法具体是由 `JitCompiler` 实例的方法 `compileModuleAsync` 执行**的：
+而在 JTT 编译器实例化的时候，会实例一个 `JitCompiler` 当做代理去编译，所以实际上**异步创建模块工厂和组件这个方法具体是由 `JitCompiler` 实例的方法 `compileModuleAsync` 执行**的：
+
+### JitCompiler
 
 > angular/packages/compiler/src/jit/compiler.ts
 
@@ -154,12 +158,14 @@ export class JitCompiler {
 
 `compileModuleAsync` 调用了 `_compileModuleAndComponents`，并返回一个 `Promise`。
 
-这里逻辑比较复杂，大概讲下，具体的大家可以看 angular 的源代码，很好理解：
+这里逻辑比较复杂，大概讲下，**具体的在后面 angular模块 的时候再详细讲解**，很好理解：
 
-1. 私有方法 `_compileModuleAndComponents` 先**调用了 `this._loadModules`**，异步加载解析主模块，也就是 `bootstrapModule` 的 `ngModule`
-2. 在异步加载主模块之后，执行后面的回调函数，通过私有方法 `_compileComponents` **编译主模块上的所有组件和指令**，并通过 `_compileTemplate` 编译模板，这步先跳过，感兴趣可以自行去看
-3. 最后通过私有方法 `_compileModule` 返回value 是编译过的模块工厂的 `Promise`
+1. **加载模块**：私有方法 `_compileModuleAndComponents` 先**调用了 `this._loadModules`**，异步加载解析主模块，也就是 `bootstrapModule` 的 `ngModule`
+2. **编译组件**：在异步加载主模块之后，执行后面的回调函数，通过私有方法 `_compileComponents` **编译主模块上的所有组件和指令**，并通过 `_compileTemplate` 编译模板，这步先跳过，感兴趣可以自行去看
+3. **编译模块**：最后通过私有方法 `_compileModule` 返回value 是编译过的模块工厂的 `Promise`
 4. `Promise` 会调用下面的异步方法 `then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options))`
+
+### 两次导入同一个模块
 
 这里**有个地方也很有意思**，官网上的[模块常见问题](https://www.angular.cn/guide/ngmodule-faq)上有这样的一个问题：
 
@@ -204,6 +210,8 @@ bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&Bootst
 回一下上面，`bootstrapModule` 方法调用了 `compileNgModuleFactory` 返回一个 value 是 `ngModuleFactory` 模块工厂的 `Promise`，
 
 接下来在 `Promise` 的 `then` 方法里调用了 `bootstrapModuleFactory`。
+
+### bootstrapModuleFactory
 
 > angular/packages/core/src/application_ref.ts
 
@@ -284,7 +292,8 @@ const ngZoneInjector = Injector.create(
 
 1. `bootstrapModule` 会先合并配置并调用编译模块的工厂函数 `compileNgModuleFactory` 开始编译模块
 2. `compileNgModuleFactory` 通过平台实例 `PlatformRef` 的注射器 `injector` 获取 JIT编译器工厂 `JitCompilerFactory`，JIT 编译器工厂 `JitCompilerFactory` 又通过 `createCompiler` 方法，创建编译器 `Compiler` 实例 `CompilerImpl`，并开始编译根模块和所有的组件，`CompilerImpl` 调用 `JitCompiler` JIT 编译实例 **最后实际上编译是`JitCompiler`去编译的**
-3. **异步编译根模块和所有的组件**，**并放入缓存中**，最后返回 value 是模块工厂 `NgModuleFactory` 的 `Promise`
-4. 然后在 `Promise.then()` 里调用 `bootstrapModuleFactory`
-5. `bootstrapModuleFactory` **创建 NgZone 实例并开始运行 zone** ，**让所有的 angular 程序跑在这个 `zone` 上下文环境里**
-6. 开始运行 zone ，**创建根模块的父注入器 `injector` 并实例化模块工厂创建模块实例 `NgModuleRef`**
+3. **`JitCompiler` 加载模块 => 编译组件 => 编译模块**
+4. **异步编译根模块和所有的组件**，**并放入缓存中**，最后返回 value 是模块工厂 `NgModuleFactory` 的 `Promise`
+5. 然后在 `Promise.then()` 里调用 `bootstrapModuleFactory`
+6. `bootstrapModuleFactory` **创建 NgZone 实例并开始运行 zone** ，**让所有的 angular 程序跑在这个 `zone` 上下文环境里**
+7. 开始运行 zone ，**创建根模块的父注入器 `injector` 并实例化模块工厂创建模块实例 `NgModuleRef`**
