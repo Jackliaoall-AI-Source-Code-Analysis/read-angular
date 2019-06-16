@@ -39,7 +39,8 @@ export class CompilerImpl implements Compiler {
       ngModuleCompiler: NgModuleCompiler, summaryResolver: SummaryResolver<Type<any>>,
       compileReflector: CompileReflector, jitEvaluator: JitEvaluator,
       compilerConfig: CompilerConfig, console: Console) {
-    this._delegate = new JitCompiler( // 注释：JIT 编译器
+    // 注释：创建 JIT 编译器
+    this._delegate = new JitCompiler(
         _metadataResolver, templateParser, styleCompiler, viewCompiler, ngModuleCompiler,
         summaryResolver, compileReflector, jitEvaluator, compilerConfig, console,
         this.getExtraNgModuleProviders.bind(this));
@@ -90,18 +91,26 @@ export class CompilerImpl implements Compiler {
  * template compilation.
  */
 export const COMPILER_PROVIDERS = <StaticProvider[]>[
+  // 注释：这里也是一个核心点-编译反射器
   {provide: CompileReflector, useValue: new JitReflector()},
+  // 注释：ResourceLoader- 资源加载器
   {provide: ResourceLoader, useValue: _NO_RESOURCE_LOADER},
+  // 注释：jit 摘要解析器
   {provide: JitSummaryResolver, deps: []},
+  // 注释：摘要解析器
   {provide: SummaryResolver, useExisting: JitSummaryResolver},
   {provide: Console, deps: []},
+  // 注释：语法分析器
   {provide: Lexer, deps: []},
+  // 注释：解析器器
   {provide: Parser, deps: [Lexer]},
+  // 注释：基本的HTML解析器
   {
     provide: baseHtmlParser,
     useClass: HtmlParser,
     deps: [],
   },
+  // 注释：国际化的HTML解析器
   {
     provide: I18NHtmlParser,
     useFactory: (parser: HtmlParser, translations: string | null, format: string,
@@ -109,6 +118,7 @@ export const COMPILER_PROVIDERS = <StaticProvider[]>[
       translations = translations || '';
       const missingTranslation =
           translations ? config.missingTranslation ! : MissingTranslationStrategy.Ignore;
+      // 注释：new 国际化的HTML解析器
       return new I18NHtmlParser(parser, translations, format, missingTranslation, console);
     },
     deps: [
@@ -123,13 +133,16 @@ export const COMPILER_PROVIDERS = <StaticProvider[]>[
     provide: HtmlParser,
     useExisting: I18NHtmlParser,
   },
+  // 注释：模板解析器
   {
     provide: TemplateParser, deps: [CompilerConfig, CompileReflector,
     Parser, ElementSchemaRegistry,
     I18NHtmlParser, Console]
   },
   { provide: JitEvaluator, useClass: JitEvaluator, deps: [] },
+  // 注释：指令规范器
   { provide: DirectiveNormalizer, deps: [ResourceLoader, UrlResolver, HtmlParser, CompilerConfig]},
+  // 注释：元数据解析器
   { provide: CompileMetadataResolver, deps: [CompilerConfig, HtmlParser, NgModuleResolver,
                       DirectiveResolver, PipeResolver,
                       SummaryResolver,
@@ -139,20 +152,31 @@ export const COMPILER_PROVIDERS = <StaticProvider[]>[
                       CompileReflector,
                       [Optional, ERROR_COLLECTOR_TOKEN]]},
   DEFAULT_PACKAGE_URL_PROVIDER,
+  // 注释：样式编译器
   { provide: StyleCompiler, deps: [UrlResolver]},
+  // 注释：view 编译器
   { provide: ViewCompiler, deps: [CompileReflector]},
+  // 注释：NgModule编译器
   { provide: NgModuleCompiler, deps: [CompileReflector] },
+  // 注释：编译器配置项目
   { provide: CompilerConfig, useValue: new CompilerConfig()},
-  { provide: Compiler, useClass: CompilerImpl, deps: [Injector, CompileMetadataResolver, // 注释：JIT时，Compiler的服务供应商 CompilerImpl
+  // 注释：JIT时，Compiler的服务供应商 CompilerImpl
+  { provide: Compiler, useClass: CompilerImpl, deps: [Injector, CompileMetadataResolver,
                                 TemplateParser, StyleCompiler,
                                 ViewCompiler, NgModuleCompiler,
                                 SummaryResolver, CompileReflector, JitEvaluator, CompilerConfig,
                                 Console]},
+  // 注释：DOM schema
   { provide: DomElementSchemaRegistry, deps: []},
+  // 注释：Element schema
   { provide: ElementSchemaRegistry, useExisting: DomElementSchemaRegistry},
+  // 注释：URL解析器
   { provide: UrlResolver, deps: [PACKAGE_ROOT_URL]},
+  // 注释：指令解析器
   { provide: DirectiveResolver, deps: [CompileReflector]},
+  // 注释：管道解析器
   { provide: PipeResolver, deps: [CompileReflector]},
+  // 注释：模块解析器
   { provide: NgModuleResolver, deps: [CompileReflector]},
 ];
 

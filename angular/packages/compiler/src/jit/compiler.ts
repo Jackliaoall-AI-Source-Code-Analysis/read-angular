@@ -104,20 +104,13 @@ export class JitCompiler {
   private _filterJitIdentifiers(ids: CompileIdentifierMetadata[]): any[] {
     return ids.map(mod => mod.reference).filter((ref) => !this.hasAotSummary(ref));
   }
-  /**
-   * 注释：做了三件事:
-   * 
-   * 1. 加载模块 `this._loadModules`
-   * 2. 编译入口组件 `this._compileComponents`
-   * 3. 编译模块 `this._compileModule`
-   *
-   * @private
-   * @param {Type} moduleType 模块类
-   * @param {boolean} isSync false 异步
-   * @returns {SyncAsync<object>}
-   * @memberof JitCompiler
-   */
-  private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> { // 注释：其实调用的是这步，编译主模块和组件
+
+  // 注释：做了三件事: 
+  //  1. 加载模块 `this._loadModules`
+  //  2. 编译入口组件 `this._compileComponents`
+  //  3. 编译模块 `this._compileModule`
+  private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> {
+    // 注释：其实调用的是这步，编译主模块和组件
     return SyncAsync.then(this._loadModules(moduleType, isSync), () => {  // 注释：先加载模块
       this._compileComponents(moduleType, null); // 注释：异步有结果之后的回调函数，编译主模块上的所有入口组件 
       return this._compileModule(moduleType); // 注释：返回编译后的模块工厂
@@ -136,12 +129,14 @@ export class JitCompiler {
     });
   }
 
-  private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> { // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
+  // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
+  // 最后所有被导入 AppModule 关联的模块的元数据都已经加载进了缓存中，包括了从 AppModule 开始除了懒加载模块之外的的整个模块树，树上的所有指令，组件和管道，以及所有的服务
+  private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> {
     const loading: Promise<any>[] = [];
     // 注释：从元数据中获得根模块的 __annotations__ 并格式化
     const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
-    console.log(4444444, mainNgModule);
-    // 注释：异步编译全部指令组件和和管道的元数据
+
+    // 注释：过滤 AOT 模块并异步编加载数据中全部指令组件和和管道
     // Note: for runtime compilation, we want to transitively compile all modules,
     // so we also need to load the declared directives / pipes for all nested modules.
     // 注释：过滤掉根模块元数据中的 AOT 模块
@@ -149,7 +144,7 @@ export class JitCompiler {
       // getNgModuleMetadata only returns null if the value passed in is not an NgModule
       const moduleMeta = this._metadataResolver.getNgModuleMetadata(nestedNgModule) !;
       this._filterJitIdentifiers(moduleMeta.declaredDirectives).forEach((ref) => {
-        // 注释：异步编译全部指令组件和和管道
+        // 注释：异步编加载数据中全部指令组件和和管道
         const promise =
             this._metadataResolver.loadDirectiveMetadata(moduleMeta.type.reference, ref, isSync);
         if (promise) {
@@ -159,10 +154,12 @@ export class JitCompiler {
       this._filterJitIdentifiers(moduleMeta.declaredPipes)
           .forEach((ref) => this._metadataResolver.getOrLoadPipeMetadata(ref));
     });
+    // 注释：最后全部并行 Promise
     return SyncAsync.all(loading);
   }
 
-  private _compileModule(moduleType: Type): object { // 注释：angular 会用 Map 缓存模块工厂，并且在需要返回编译的模块工厂时，优先去缓存中寻找已经被编译过的模块工厂
+  // 注释：angular 会用 Map 缓存模块工厂，并且在需要返回编译的模块工厂时，优先去缓存中寻找已经被编译过的模块工厂
+  private _compileModule(moduleType: Type): object {
     let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !; // 注释：读取缓存
     if (!ngModuleFactory) {
       const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
@@ -177,20 +174,26 @@ export class JitCompiler {
     return ngModuleFactory;
   }
 
-  /**
-   * @internal
-   */
-  _compileComponents(mainModule: Type, allComponentFactories: object[]|null) { // 注释：编译主模块上的所有组件和指令
+  // 注释：编译主模块上的所有组件和指令
+  // 主要目的：拿到 组件的模板、入口组件的模板、组件的入口组件的模板(原来组件也有入口组件)，最终拿到了所有涉及的模板，放在 templates 中
+  _compileComponents(mainModule: Type, allComponentFactories: object[]|null) {
+    // 注释：获取主模块
     const ngModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
     const moduleByJitDirective = new Map<any, CompileNgModuleMetadata>();
     const templates = new Set<CompiledTemplate>();
 
+    // 注释：过滤AOT模块
     const transJitModules = this._filterJitIdentifiers(ngModule.transitiveModule.modules);
+
+    // 注释：编译各个模块的模板，（localMod 是模块的class）
     transJitModules.forEach((localMod) => {
       const localModuleMeta = this._metadataResolver.getNgModuleMetadata(localMod) !;
+      // 注释：指令和组件都是 declaredDirectives (在angular里 @Component组件 继承了 指令@Directive)
       this._filterJitIdentifiers(localModuleMeta.declaredDirectives).forEach((dirRef) => {
         moduleByJitDirective.set(dirRef, localModuleMeta);
         const dirMeta = this._metadataResolver.getDirectiveMetadata(dirRef);
+        // 注释：只编译组件
+        // 注释：拿到所有的模板，并放在 templates：Set 中
         if (dirMeta.isComponent) {
           templates.add(this._createCompiledTemplate(dirMeta, localModuleMeta));
           if (allComponentFactories) {
@@ -202,6 +205,8 @@ export class JitCompiler {
         }
       });
     });
+
+    // 注释：编译入口组件的模板
     transJitModules.forEach((localMod) => {
       const localModuleMeta = this._metadataResolver.getNgModuleMetadata(localMod) !;
       this._filterJitIdentifiers(localModuleMeta.declaredDirectives).forEach((dirRef) => {
@@ -222,6 +227,8 @@ export class JitCompiler {
         }
       });
     });
+
+    // 注释：执行 _compileTemplate 编译模板
     templates.forEach((template) => this._compileTemplate(template));
   }
 

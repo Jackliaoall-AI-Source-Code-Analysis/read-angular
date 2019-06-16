@@ -98,7 +98,7 @@ export const NgModule: NgModuleDecorator = makeDecorator(
 
 1. `providers?: Provider[];` 依赖注入系统提供可注入项的重点
    1. **非懒加载模块定义的 `providers` 可以提供给全局任何指令管道服务**，相当于 `@Injectable` 为 `root`
-   2. 懒加载的模块**有自己的注入器，通常是 app roo t注入器的子注入器**，在**懒加载模块内为单例服务**
+   2. 懒加载的模块**有自己的注入器，通常是 app root 注入器的子注入器**，在**懒加载模块内为单例服务**
 2. `declarations` 属于此模块的组件，指令和管道的集合
 3. `imports` 引入其他模块的 `export`
 4. `exports` 到处给其他模块的 `imports`
@@ -116,6 +116,46 @@ export const NgModule: NgModuleDecorator = makeDecorator(
 ```typescript
 export const ANNOTATIONS = '__annotations__';
 
+export function makeDecorator<T>(
+    name: string, 
+    props?: (...args: any[]) => any, // 注释：args 就是装饰器的参数用来处理装饰器参数
+    parentClass?: any,
+    additionalProcessing?: (type: Type<T>) => void, // 注释：额外的处理
+    typeFn?: (type: Type<T>, ...args: any[]) => void) // 注释：用来处理class的原型
+: {new (...args: any[]): any; (...args: any[]): any; (...args: any[]): (cls: any) => any;} {
+  const metaCtor = makeMetadataCtor(props); // 注释：创建 Metadata 的构造函数
+
+  function DecoratorFactory(...args: any[]): (cls: Type<T>) => any {
+    if (this instanceof DecoratorFactory) { // 注释：通过 args 用来设置默认值 
+      metaCtor.call(this, ...args); // 注释：this就是DecoratorFactory工厂，也就是参数对象
+      return this;
+    }
+
+    const annotationInstance = new (DecoratorFactory as any)(...args); // 注释：注解实例实际上就是装饰器的参数对象
+    return function TypeDecorator(cls: Type<T>) { // 注释：cls就是装饰器装饰的类构造函数
+      if (typeFn) typeFn(cls, ...args);
+      // Use of Object.defineProperty is important since it creates non-enumerable property which
+      // prevents the property is copied during subclassing.
+      const annotations = cls.hasOwnProperty(ANNOTATIONS) ?
+          (cls as any)[ANNOTATIONS] :
+          Object.defineProperty(cls, ANNOTATIONS, {value: []})[ANNOTATIONS];
+      annotations.push(annotationInstance); // 注释：将装饰器的处理结果存在
+
+      if (additionalProcessing) additionalProcessing(cls);
+
+      return cls;
+    };
+  }
+
+  if (parentClass) {
+    DecoratorFactory.prototype = Object.create(parentClass.prototype); // 注释：使实例 DecoratorFactory 继承继承 parentClass
+  }
+
+  DecoratorFactory.prototype.ngMetadataName = name; // 注释：装饰器名称会被放在原型属性 ngMetadataName 上
+  (DecoratorFactory as any).annotationCls = DecoratorFactory;
+  return DecoratorFactory as any;
+}
+
 function makeMetadataCtor(props?: (...args: any[]) => any): any {
   return function ctor(...args: any[]) {
     if (props) {
@@ -125,48 +165,6 @@ function makeMetadataCtor(props?: (...args: any[]) => any): any {
       }
     }
   };
-}
-
-/**
- * @suppress {globalThis}
- */
-export function makeDecorator<T>(
-    name: string, props?: (...args: any[]) => any, parentClass?: any,
-    additionalProcessing?: (type: Type<T>) => void,
-    typeFn?: (type: Type<T>, ...args: any[]) => void):
-    {new (...args: any[]): any; (...args: any[]): any; (...args: any[]): (cls: any) => any;} {
-  const metaCtor = makeMetadataCtor(props);
-
-  function DecoratorFactory(...args: any[]): (cls: Type<T>) => any {
-    if (this instanceof DecoratorFactory) {
-      metaCtor.call(this, ...args);
-      return this;
-    }
-
-    const annotationInstance = new (DecoratorFactory as any)(...args);
-    return function TypeDecorator(cls: Type<T>) {
-      if (typeFn) typeFn(cls, ...args);
-      // Use of Object.defineProperty is important since it creates non-enumerable property which
-      // prevents the property is copied during subclassing.
-      const annotations = cls.hasOwnProperty(ANNOTATIONS) ?
-          (cls as any)[ANNOTATIONS] :
-          Object.defineProperty(cls, ANNOTATIONS, {value: []})[ANNOTATIONS];
-      annotations.push(annotationInstance);
-
-
-      if (additionalProcessing) additionalProcessing(cls);
-
-      return cls;
-    };
-  }
-
-  if (parentClass) {
-    DecoratorFactory.prototype = Object.create(parentClass.prototype);
-  }
-
-  DecoratorFactory.prototype.ngMetadataName = name;
-  (DecoratorFactory as any).annotationCls = DecoratorFactory;
-  return DecoratorFactory as any;
 }
 ```
 
@@ -179,7 +177,7 @@ export function makeDecorator<T>(
 
 在这里 `makeDecorator` 基本上做了这几个事情：
 
-1. 通过 `makeMetadataCtor` 创建一个**给类构造函数附加初始值的函数**
+1. 通过 `makeMetadataCtor` 创建一个**给类构造函数附加初始值的函数** ，本质上是**创建 Metadata 的构造函数**
 2. 如果 `this` 是注解工厂 `DecoratorFactory` 的实例，则通过上面给类构造函数附加初始值的函数，传入 `this` 和装饰器参数 `args`
 3. 此外则先执行 `typeFn` 传入类构造函数和参数，修改类构造函数
 4. 先传入**参数创建注解工厂 `DecoratorFactory` 的实例** ，注解工厂方法会递归执行，直到 `this` 是注解工厂 `DecoratorFactory` 的实例 （**注解工厂 `DecoratorFactory` 的实例实际上就是装饰器的参数对象**）
@@ -241,14 +239,17 @@ export class PlatformRef {
 
 ```typescript
 export class CompilerImpl implements Compiler {
+  ...
   private _delegate: JitCompiler;
+  ...
   constructor(
       injector: Injector, private _metadataResolver: CompileMetadataResolver,
       templateParser: TemplateParser, styleCompiler: StyleCompiler, viewCompiler: ViewCompiler,
       ngModuleCompiler: NgModuleCompiler, summaryResolver: SummaryResolver<Type<any>>,
       compileReflector: CompileReflector, jitEvaluator: JitEvaluator,
       compilerConfig: CompilerConfig, console: Console) {
-    this._delegate = new JitCompiler( // 注释：JIT 编译器
+    // 注释：创建 JIT 编译器
+    this._delegate = new JitCompiler(
         _metadataResolver, templateParser, styleCompiler, viewCompiler, ngModuleCompiler,
         summaryResolver, compileReflector, jitEvaluator, compilerConfig, console,
         this.getExtraNgModuleProviders.bind(this));
@@ -256,6 +257,7 @@ export class CompilerImpl implements Compiler {
   compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>> { // 注释：异步创建模块及其子组件
     return this._delegate.compileModuleAsync(moduleType) as Promise<NgModuleFactory<T>>;
   }
+  ...
 }
 ```
 
@@ -282,18 +284,27 @@ export class JitCompiler {
       private _ngModuleCompiler: NgModuleCompiler, private _summaryResolver: SummaryResolver<Type>,
       private _reflector: CompileReflector, private _jitEvaluator: JitEvaluator,
       private _compilerConfig: CompilerConfig, private _console: Console,
-      private getExtraNgModuleProviders: (ngModule: any) => CompileProviderMetadata[]) {}
-
+      private getExtraNgModuleProviders: (ngModule: any) => CompileProviderMetadata[]) {
+        ...
+      }
+  ...
   compileModuleAsync(moduleType: Type): Promise<object> {
-    return Promise.resolve(this._compileModuleAndComponents(moduleType, false)); // 注释：其实 JTI 编译在这步做的
+    // 注释：其实 JTI 编译在这步做的
+    return Promise.resolve(this._compileModuleAndComponents(moduleType, false));
   }
 
+  // 注释：做了三件事: 
+  //  1. 加载模块 `this._loadModules`
+  //  2. 编译入口组件 `this._compileComponents`
+  //  3. 编译模块 `this._compileModule`
   private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> {
-    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {
-      this._compileComponents(moduleType, null);
-      return this._compileModule(moduleType);
+    // 注释：其实调用的是这步，编译主模块和组件
+    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {  // 注释：先加载模块
+      this._compileComponents(moduleType, null); // 注释：异步有结果之后的回调函数，编译主模块上的所有入口组件 
+      return this._compileModule(moduleType); // 注释：返回编译后的模块工厂
     });
   }
+  ...
 }
 ```
 
@@ -312,17 +323,18 @@ export class JitCompiler {
 ```typescript
 export class JitCompiler {
   ...
-  private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> { // 注释：isSync:false 异步加载解析主模块，也就是 bootstrap 的 ngModule
+  // 注释：异步加载解析主模块，也就是 bootstrap 的 ngModule
+  private _loadModules(mainModule: any, isSync: boolean): SyncAsync<any> {
     const loading: Promise<any>[] = [];
     // 注释：从元数据中获得根模块的 __annotations__ 并格式化
     const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
-    // 注释：异步编译全部指令组件和和管道的元数据
+    // 注释：过滤 AOT 模块并异步编加载数据中全部指令组件和和管道
     // 注释：过滤掉根模块元数据中的 AOT 模块
     this._filterJitIdentifiers(mainNgModule.transitiveModule.modules).forEach((nestedNgModule) => {
       // getNgModuleMetadata only returns null if the value passed in is not an NgModule
       const moduleMeta = this._metadataResolver.getNgModuleMetadata(nestedNgModule) !;
       this._filterJitIdentifiers(moduleMeta.declaredDirectives).forEach((ref) => {
-        // 注释：异步编译全部指令组件和和管道
+        // 注释：异步编加载数据中全部指令组件和和管道
         const promise =
             this._metadataResolver.loadDirectiveMetadata(moduleMeta.type.reference, ref, isSync);
         if (promise) {
@@ -332,6 +344,7 @@ export class JitCompiler {
       this._filterJitIdentifiers(moduleMeta.declaredPipes)
           .forEach((ref) => this._metadataResolver.getOrLoadPipeMetadata(ref));
     });
+    // 注释：最后全部并行 Promise
     return SyncAsync.all(loading);
   }
   ...
@@ -354,9 +367,10 @@ export class JitCompiler {
 `_loadModules` 做了什么？
 
 1. 首先通过 `this._metadataResolver.getNgModuleMetadata` 获取到之前 `makeDecorator` 在模块类上创建的**静态属性 `__annotations__` 并编译模块的元数据**
-2. 调用 `this._filterJitIdentifiers` **递归过滤掉根模块元数据中的 AOT 模块**
-3. 调用 `this._metadataResolver.loadDirectiveMetadata(moduleMeta.type.reference, ref, isSync)` **异步编译全部指令组件和和管道的元数据**
-4. 最后返回异步编译的结果
+2. 调用 `this._filterJitIdentifiers` **递归过滤掉 AOT 模块**
+3. 调用 `this._metadataResolver.loadDirectiveMetadata(moduleMeta.type.reference, ref, isSync)` **异步加载全部指令组件和和管道的元数据**
+4. 全部并行 `Promise` 并返回异步编译的结果
+5. 最后所有被导入 `AppModule` 关联的模块的元数据都已经加载进了缓存中，包括了**从 `AppModule` 开始除了懒加载模块之外的的整个模块树，树上的所有指令，组件和管道，以及所有的服务**。
 
 接下来继续看 `_compileModuleAndComponents` 在加载完模块之后，调用了 `this._compileComponents` 编译组件：
 
@@ -364,10 +378,15 @@ export class JitCompiler {
 
 ```typescript
 export class JitCompiler {
+  // 注释：做了三件事: 
+  //  1. 加载模块 `this._loadModules`
+  //  2. 编译入口组件 `this._compileComponents`
+  //  3. 编译模块 `this._compileModule`
   private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> {
-    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {
-      this._compileComponents(moduleType, null);
-      return this._compileModule(moduleType);
+    // 注释：其实调用的是这步，编译主模块和组件
+    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {  // 注释：先加载模块
+      this._compileComponents(moduleType, null); // 注释：异步有结果之后的回调函数，编译主模块上的所有入口组件 
+      return this._compileModule(moduleType); // 注释：返回编译后的模块工厂
     });
   }
 }
@@ -375,23 +394,32 @@ export class JitCompiler {
 
 ### _compileComponents
 
-`_compileComponents` 方法用来编译 `entryComponents` （此处只假设是 `bootstrap` 的根组件）：
+`_compileComponents` 方法用来编译根模块组件的模板：
 
 > angular/packages/compiler/src/jit/compiler.ts
 
 ```typescript
 export class JitCompiler {
+  // 注释：编译主模块上的所有组件
+  // 主要目的：拿到被声明的组件的模板、入口组件的模板，最终拿到了所有涉及的模板，放在 templates 中
   _compileComponents(mainModule: Type, allComponentFactories: object[]|null) {
+    // 注释：获取主模块
     const ngModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
     const moduleByJitDirective = new Map<any, CompileNgModuleMetadata>();
     const templates = new Set<CompiledTemplate>();
 
+    // 注释：过滤AOT模块
     const transJitModules = this._filterJitIdentifiers(ngModule.transitiveModule.modules);
+
+    // 注释：编译各个模块的模板，（localMod 是模块的class）
     transJitModules.forEach((localMod) => {
       const localModuleMeta = this._metadataResolver.getNgModuleMetadata(localMod) !;
+      // 注释：指令和组件都是 declaredDirectives (在angular里 @Component组件 继承了 指令@Directive)
       this._filterJitIdentifiers(localModuleMeta.declaredDirectives).forEach((dirRef) => {
         moduleByJitDirective.set(dirRef, localModuleMeta);
         const dirMeta = this._metadataResolver.getDirectiveMetadata(dirRef);
+        // 注释：只编译组件
+        // 注释：拿到所有的模板，并放在 templates：Set 中
         if (dirMeta.isComponent) {
           templates.add(this._createCompiledTemplate(dirMeta, localModuleMeta));
           if (allComponentFactories) {
@@ -403,6 +431,8 @@ export class JitCompiler {
         }
       });
     });
+
+    // 注释：编译入口组件的模板
     transJitModules.forEach((localMod) => {
       const localModuleMeta = this._metadataResolver.getNgModuleMetadata(localMod) !;
       this._filterJitIdentifiers(localModuleMeta.declaredDirectives).forEach((dirRef) => {
@@ -423,15 +453,27 @@ export class JitCompiler {
         }
       });
     });
+
+    // 注释：执行 _compileTemplate 编译模板
     templates.forEach((template) => this._compileTemplate(template));
   }
 }
 ```
 
+在这里主要做了下面这几件事：
+
+1. `this._metadataResolver.getNgModuleMetadata` 像之前编译模板一样获取根模块
+2. `this._filterJitIdentifiers` 过滤 AOT 模块
+3. 第一次遍历，找出所有从根模块开始的模块树上被声明的组件，并编译其模板
+4. 第二次遍历，找出所有从根模块开始的模块树上入口的组件，并编译其模板
+5. 最后编译所有模板
+
+`_compileComponents` 的**目的是拿到被声明的组件的模板、入口组件的模板，最终拿到了所有涉及的模板**
 
 
 
-## _metadataResolver
+
+## CompileMetadataResolver编译元数据解析器
 
 几乎所有的编译组件和
 

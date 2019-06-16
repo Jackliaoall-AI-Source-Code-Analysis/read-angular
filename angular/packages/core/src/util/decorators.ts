@@ -49,7 +49,7 @@ export function makeDecorator<T>(
     additionalProcessing?: (type: Type<T>) => void, // 注释：额外的处理
     typeFn?: (type: Type<T>, ...args: any[]) => void) // 注释：用来处理class的原型
 : {new (...args: any[]): any; (...args: any[]): any; (...args: any[]): (cls: any) => any;} {
-  const metaCtor = makeMetadataCtor(props);
+  const metaCtor = makeMetadataCtor(props); // 注释：创建 Metadata 的构造函数
 
   function DecoratorFactory(...args: any[]): (cls: Type<T>) => any {
     if (this instanceof DecoratorFactory) { // 注释：通过 args 用来设置默认值 
