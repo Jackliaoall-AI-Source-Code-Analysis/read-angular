@@ -132,7 +132,9 @@ export class ParseError {
 }
 
 export function typeSourceSpan(kind: string, type: CompileIdentifierMetadata): ParseSourceSpan {
+  // 注释：识别模块路径 ./AppModule
   const moduleUrl = identifierModuleUrl(type);
+  // 注释：in NgModule AppModule in ./AppModule"
   const sourceFileName = moduleUrl != null ? `in ${kind} ${identifierName(type)} in ${moduleUrl}` :
                                              `in ${kind} ${identifierName(type)}`;
   const sourceFile = new ParseSourceFile('', sourceFileName);

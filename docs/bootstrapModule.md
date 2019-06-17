@@ -26,10 +26,19 @@ Angular 应用是模块化的，它拥有自己的模块化系统，称作 `NgMo
 > angular/packages/core/src/application_ref.ts
 
 ```typescript
-bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)| Array<CompilerOptions&BootstrapOptions> = []):Promise<NgModuleRef<M>> {
-  const options = optionsReducer({}, compilerOptions);
-  return compileNgModuleFactory(this.injector, options, moduleType)
-      .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
+@Injectable()
+export class PlatformRef {
+  ...
+  bootstrapModule<M>(
+      moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)|
+      Array<CompilerOptions&BootstrapOptions> = []): Promise<NgModuleRef<M>> {
+    // 注释：bootstrapModule` 首先通过 `optionsReducer` 递归 reduce 将编译器选项 `compilerOptions` 拍平为对象
+    const options = optionsReducer({}, compilerOptions);
+    // 注释：这里获取到编译后的模块工厂，然后返回给 bootstrapModuleFactory创建模块
+    return compileNgModuleFactory(this.injector, options, moduleType)
+        .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
+  }
+  ...
 }
 ```
 
@@ -68,8 +77,11 @@ let compileNgModuleFactory:
 function compileNgModuleFactory__PRE_R3__<M>(
     injector: Injector, options: CompilerOptions,
     moduleType: Type<M>): Promise<NgModuleFactory<M>> {
+  // 注释：其实就是平台coreDynamic 的服务商 JitCompilerFactory
   const compilerFactory: CompilerFactory = injector.get(CompilerFactory);
+  // 注释：调用 JitCompilerFactory 创建编译器实例 CompilerImpl
   const compiler = compilerFactory.createCompiler([options]);
+  // 注释：异步创建 ngmodule 模块工厂 （CompilerImpl 通过代理 CompilerImpl 去编译）
   return compiler.compileModuleAsync(moduleType);
 }
 ```
@@ -105,16 +117,19 @@ export class CompilerImpl implements Compiler {
       ngModuleCompiler: NgModuleCompiler, summaryResolver: SummaryResolver<Type<any>>,
       compileReflector: CompileReflector, jitEvaluator: JitEvaluator,
       compilerConfig: CompilerConfig, console: Console) {
+    // 注释：创建 JIT 编译器
     this._delegate = new JitCompiler(
         _metadataResolver, templateParser, styleCompiler, viewCompiler, ngModuleCompiler,
         summaryResolver, compileReflector, jitEvaluator, compilerConfig, console,
         this.getExtraNgModuleProviders.bind(this));
     this.injector = injector;
   }
-
+  ...
+  // 注释：异步创建模块及其子组件
   compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>> {
     return this._delegate.compileModuleAsync(moduleType) as Promise<NgModuleFactory<T>>;
   }
+  ...
 }
 ```
 
@@ -122,7 +137,7 @@ export class CompilerImpl implements Compiler {
 
 而在 JTT 编译器实例化的时候，会实例一个 `JitCompiler` 当做代理去编译，所以实际上**异步创建模块工厂和组件这个方法具体是由 `JitCompiler` 实例的方法 `compileModuleAsync` 执行**的：
 
-### JitCompiler
+### JitCompilerJIT编译器
 
 > angular/packages/compiler/src/jit/compiler.ts
 
@@ -144,13 +159,19 @@ export class JitCompiler {
       private getExtraNgModuleProviders: (ngModule: any) => CompileProviderMetadata[]) {}
 
   compileModuleAsync(moduleType: Type): Promise<object> {
-    return Promise.resolve(this._compileModuleAndComponents(moduleType, false)); // 注释：其实 JTI 编译在这步做的
+    // 注释：其实 JTI 编译在这步做的，异步编译模块和组件
+    return Promise.resolve(this._compileModuleAndComponents(moduleType, false));
   }
 
+  // 注释：做了三件事: 
+  //  1. 加载模块 `this._loadModules`
+  //  2. 编译入口组件 `this._compileComponents`
+  //  3. 编译模块 `this._compileModule`
   private _compileModuleAndComponents(moduleType: Type, isSync: boolean): SyncAsync<object> {
-    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {
-      this._compileComponents(moduleType, null);
-      return this._compileModule(moduleType);
+    // 注释：其实调用的是这步，编译主模块和组件
+    return SyncAsync.then(this._loadModules(moduleType, isSync), () => {  // 注释：先加载模块
+      this._compileComponents(moduleType, null); // 注释：异步有结果之后的回调函数，编译主模块上的所有入口组件 
+      return this._compileModule(moduleType); // 注释：返回编译后的模块工厂
     });
   }
 }
@@ -161,7 +182,7 @@ export class JitCompiler {
 这里逻辑比较复杂，大概讲下，**具体的在后面 angular模块 的时候再详细讲解**，很好理解：
 
 1. **加载模块**：私有方法 `_compileModuleAndComponents` 先**调用了 `this._loadModules`**，异步加载解析主模块，也就是 `bootstrapModule` 的 `ngModule`
-2. **编译组件**：在异步加载主模块之后，执行后面的回调函数，通过私有方法 `_compileComponents` **编译主模块上的所有组件和指令**，并通过 `_compileTemplate` 编译模板，这步先跳过，感兴趣可以自行去看
+2. **编译组件**：在异步加载主模块之后，执行后面的回调函数，通过私有方法 `_compileComponents` **编译主模块上的所有组件**，并通过 `_compileTemplate` 编译模板（这步先跳过，后面讲到编译组件的时候会讲）
 3. **编译模块**：最后通过私有方法 `_compileModule` 返回value 是编译过的模块工厂的 `Promise`
 4. `Promise` 会调用下面的异步方法 `then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options))`
 
@@ -176,19 +197,24 @@ export class JitCompiler {
 > angular/packages/compiler/src/jit/compiler.ts
 
 ```typescript
-private _compileModule(moduleType: Type): object { // 注释：从缓存中获得编译过的模块
- let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !;
- if (!ngModuleFactory) {
-   const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
-   // Always provide a bound Compiler
-   const extraProviders = this.getExtraNgModuleProviders(moduleMeta.type.reference);
-   const outputCtx = createOutputContext();
-   const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
-   ngModuleFactory = this._interpretOrJit(
-       ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
-   this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);
- }
- return ngModuleFactory;
+export class JitCompiler {
+   ...
+   private _compileModule(moduleType: Type): object {
+     // 注释：从缓存中获得编译过的模块
+    let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !;
+    if (!ngModuleFactory) {
+      const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
+      // Always provide a bound Compiler
+      const extraProviders = this.getExtraNgModuleProviders(moduleMeta.type.reference);
+      const outputCtx = createOutputContext();
+      const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
+      ngModuleFactory = this._interpretOrJit(
+          ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
+      this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);
+    }
+    return ngModuleFactory;
+   }
+   ...
 }
 ```
 
@@ -200,10 +226,19 @@ private _compileModule(moduleType: Type): object { // 注释：从缓存中获�
 > angular/packages/core/src/application_ref.ts
 
 ```typescript
-bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)| Array<CompilerOptions&BootstrapOptions> = []):Promise<NgModuleRef<M>> {
-  const options = optionsReducer({}, compilerOptions);
-  return compileNgModuleFactory(this.injector, options, moduleType)
-      .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
+@Injectable()
+export class PlatformRef {
+  ...
+  bootstrapModule<M>(
+      moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)|
+      Array<CompilerOptions&BootstrapOptions> = []): Promise<NgModuleRef<M>> {
+    // 注释：bootstrapModule` 首先通过 `optionsReducer` 递归 reduce 将编译器选项 `compilerOptions` 拍平为对象
+    const options = optionsReducer({}, compilerOptions);
+    // 注释：这里获取到编译后的模块工厂，然后返回给 bootstrapModuleFactory创建模块
+    return compileNgModuleFactory(this.injector, options, moduleType)
+        .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
+  }
+  ...
 }
 ```
 
@@ -211,43 +246,48 @@ bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&Bootst
 
 接下来在 `Promise` 的 `then` 方法里调用了 `bootstrapModuleFactory`。
 
-### bootstrapModuleFactory
+### bootstrapModuleFactory引导模块的工厂方法
 
 > angular/packages/core/src/application_ref.ts
 
 ```typescript
-bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions):
-   Promise<NgModuleRef<M>> {
- // Note: We need to create the NgZone _before_ we instantiate the module,
- // as instantiating the module creates some providers eagerly.
- // So we create a mini parent injector that just contains the new NgZone and
- // pass that as parent to the NgModuleFactory.
- const ngZoneOption = options ? options.ngZone : undefined;
- const ngZone = getNgZone(ngZoneOption);
- const providers: StaticProvider[] = [{provide: NgZone, useValue: ngZone}];
- // Attention: Don't use ApplicationRef.run here,
- // as we want to be sure that all possible constructor calls are inside `ngZone.run`!
- return ngZone.run(() => {
-   const ngZoneInjector = Injector.create(
-       {providers: providers, parent: this.injector, name: moduleFactory.moduleType.name});
-   const moduleRef = <InternalNgModuleRef<M>>moduleFactory.create(ngZoneInjector);
-   const exceptionHandler: ErrorHandler = moduleRef.injector.get(ErrorHandler, null);
-   if (!exceptionHandler) {
-     throw new Error('No ErrorHandler. Is platform module (BrowserModule) included?');
+@Injectable()
+export class PlatformRef {
+  ...
+   bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions):
+      Promise<NgModuleRef<M>> {
+    // Note: We need to create the NgZone _before_ we instantiate the module,
+    // as instantiating the module creates some providers eagerly.
+    // So we create a mini parent injector that just contains the new NgZone and
+    // pass that as parent to the NgModuleFactory.
+    const ngZoneOption = options ? options.ngZone : undefined;
+    const ngZone = getNgZone(ngZoneOption);
+    const providers: StaticProvider[] = [{provide: NgZone, useValue: ngZone}];
+    // Attention: Don't use ApplicationRef.run here,
+    // as we want to be sure that all possible constructor calls are inside `ngZone.run`!
+    return ngZone.run(() => {
+      const ngZoneInjector = Injector.create(
+          {providers: providers, parent: this.injector, name: moduleFactory.moduleType.name});
+      const moduleRef = <InternalNgModuleRef<M>>moduleFactory.create(ngZoneInjector);
+      const exceptionHandler: ErrorHandler = moduleRef.injector.get(ErrorHandler, null);
+      if (!exceptionHandler) {
+        throw new Error('No ErrorHandler. Is platform module (BrowserModule) included?');
+      }
+      moduleRef.onDestroy(() => remove(this._modules, moduleRef));
+      ngZone !.runOutsideAngular(
+          () => ngZone !.onError.subscribe(
+              {next: (error: any) => { exceptionHandler.handleError(error); }}));
+      return _callAndReportToErrorHandler(exceptionHandler, ngZone !, () => {
+        const initStatus: ApplicationInitStatus = moduleRef.injector.get(ApplicationInitStatus);
+        initStatus.runInitializers();
+        return initStatus.donePromise.then(() => {
+          this._moduleDoBootstrap(moduleRef);
+          return moduleRef;
+        });
+      });
+    });
    }
-   moduleRef.onDestroy(() => remove(this._modules, moduleRef));
-   ngZone !.runOutsideAngular(
-       () => ngZone !.onError.subscribe(
-           {next: (error: any) => { exceptionHandler.handleError(error); }}));
-   return _callAndReportToErrorHandler(exceptionHandler, ngZone !, () => {
-     const initStatus: ApplicationInitStatus = moduleRef.injector.get(ApplicationInitStatus);
-     initStatus.runInitializers();
-     return initStatus.donePromise.then(() => {
-       this._moduleDoBootstrap(moduleRef);
-       return moduleRef;
-     });
-   });
- });
+   ...
 }
 ```
 
@@ -276,6 +316,7 @@ function getNgZone(ngZoneOption?: NgZone | 'zone.js' | 'noop'): NgZone {
 > angular/packages/core/src/application_ref.ts
 
 ```typescript
+// 注释：会被 onInvoke 执行
 const ngZoneInjector = Injector.create(
        {providers: providers, parent: this.injector, name: moduleFactory.moduleType.name});
    const moduleRef = <InternalNgModuleRef<M>>moduleFactory.create(ngZoneInjector);

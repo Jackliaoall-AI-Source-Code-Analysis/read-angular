@@ -204,6 +204,110 @@ function makeMetadataCtor(props?: (...args: any[]) => any): any {
 
 **此处建议结合[第二章bootstrapModule](/#/bootstrapModule)一起阅读**
 
+### JIT编译器的服务
+
+先看下之前构建的 `JitCompilerFactory` 时注入过的服务，这些在后面编译的时候会大量用到：
+
+> angular/packages/platform-browser-dynamic/src/compiler_factory.ts
+
+```typescript
+/**
+ * A set of providers that provide `JitCompiler` and its dependencies to use for
+ * template compilation.
+ */
+export const COMPILER_PROVIDERS = <StaticProvider[]>[
+  // 注释：这里也是一个核心点-编译反射器
+  {provide: CompileReflector, useValue: new JitReflector()},
+  // 注释：ResourceLoader- 资源加载器
+  {provide: ResourceLoader, useValue: _NO_RESOURCE_LOADER},
+  // 注释：jit 摘要解析器
+  {provide: JitSummaryResolver, deps: []},
+  // 注释：摘要解析器
+  {provide: SummaryResolver, useExisting: JitSummaryResolver},
+  {provide: Console, deps: []},
+  // 注释：语法分析器
+  {provide: Lexer, deps: []},
+  // 注释：解析器器
+  {provide: Parser, deps: [Lexer]},
+  // 注释：基本的HTML解析器
+  {
+    provide: baseHtmlParser,
+    useClass: HtmlParser,
+    deps: [],
+  },
+  // 注释：国际化的HTML解析器
+  {
+    provide: I18NHtmlParser,
+    useFactory: (parser: HtmlParser, translations: string | null, format: string,
+                 config: CompilerConfig, console: Console) => {
+      translations = translations || '';
+      const missingTranslation =
+          translations ? config.missingTranslation ! : MissingTranslationStrategy.Ignore;
+      // 注释：new 国际化的HTML解析器
+      return new I18NHtmlParser(parser, translations, format, missingTranslation, console);
+    },
+    deps: [
+      baseHtmlParser,
+      [new Optional(), new Inject(TRANSLATIONS)],
+      [new Optional(), new Inject(TRANSLATIONS_FORMAT)],
+      [CompilerConfig],
+      [Console],
+    ]
+  },
+  {
+    provide: HtmlParser,
+    useExisting: I18NHtmlParser,
+  },
+  // 注释：模板解析器
+  {
+    provide: TemplateParser, deps: [CompilerConfig, CompileReflector,
+    Parser, ElementSchemaRegistry,
+    I18NHtmlParser, Console]
+  },
+  { provide: JitEvaluator, useClass: JitEvaluator, deps: [] },
+  // 注释：指令规范器
+  { provide: DirectiveNormalizer, deps: [ResourceLoader, UrlResolver, HtmlParser, CompilerConfig]},
+  // 注释：元数据解析器
+  { provide: CompileMetadataResolver, deps: [CompilerConfig, HtmlParser, NgModuleResolver,
+                      DirectiveResolver, PipeResolver,
+                      SummaryResolver,
+                      ElementSchemaRegistry,
+                      DirectiveNormalizer, Console,
+                      [Optional, StaticSymbolCache],
+                      CompileReflector,
+                      [Optional, ERROR_COLLECTOR_TOKEN]]},
+  DEFAULT_PACKAGE_URL_PROVIDER,
+  // 注释：样式编译器
+  { provide: StyleCompiler, deps: [UrlResolver]},
+  // 注释：view 编译器
+  { provide: ViewCompiler, deps: [CompileReflector]},
+  // 注释：NgModule编译器
+  { provide: NgModuleCompiler, deps: [CompileReflector] },
+  // 注释：编译器配置项目
+  { provide: CompilerConfig, useValue: new CompilerConfig()},
+  // 注释：JIT时，Compiler的服务供应商 CompilerImpl
+  { provide: Compiler, useClass: CompilerImpl, deps: [Injector, CompileMetadataResolver,
+                                TemplateParser, StyleCompiler,
+                                ViewCompiler, NgModuleCompiler,
+                                SummaryResolver, CompileReflector, JitEvaluator, CompilerConfig,
+                                Console]},
+  // 注释：DOM schema
+  { provide: DomElementSchemaRegistry, deps: []},
+  // 注释：Element schema
+  { provide: ElementSchemaRegistry, useExisting: DomElementSchemaRegistry},
+  // 注释：URL解析器
+  { provide: UrlResolver, deps: [PACKAGE_ROOT_URL]},
+  // 注释：指令解析器
+  { provide: DirectiveResolver, deps: [CompileReflector]},
+  // 注释：管道解析器
+  { provide: PipeResolver, deps: [CompileReflector]},
+  // 注释：模块解析器
+  { provide: NgModuleResolver, deps: [CompileReflector]},
+];
+```
+
+
+
 讲完了 `@NgModule`，回到之前的文章，看下 `bootstrapModule` 这个方法如何编译模块：
 
 > angular/packages/core/src/application_ref.ts
@@ -316,7 +420,7 @@ export class JitCompiler {
 2. 编译组件 `this._compileComponents`
 3. 编译模块 `this._compileModule`
 
-### _loadModules
+### _loadModules加载模块
 
 > angular/packages/compiler/src/jit/compiler.ts
 
@@ -392,7 +496,7 @@ export class JitCompiler {
 }
 ```
 
-### _compileComponents
+### _compileComponents编译组件
 
 `_compileComponents` 方法用来编译根模块组件的模板：
 
@@ -464,22 +568,139 @@ export class JitCompiler {
 
 1. `this._metadataResolver.getNgModuleMetadata` 像之前编译模板一样获取根模块
 2. `this._filterJitIdentifiers` 过滤 AOT 模块
-3. 第一次遍历，找出所有从根模块开始的模块树上被声明的组件，并编译其模板
-4. 第二次遍历，找出所有从根模块开始的模块树上入口的组件，并编译其模板
+3. 第一次遍历，找出所有从根模块开始的模块树上被声明的组件（`declarations`），并编译其模板
+4. 第二次遍历，找出所有从根模块开始的模块树上入口的组件（`entryComponents`），并编译其模板
 5. 最后编译所有模板
+
+至于如何编译的模板，之后讲组件的时候再说吧。
 
 `_compileComponents` 的**目的是拿到被声明的组件的模板、入口组件的模板，最终拿到了所有涉及的模板**
 
+### _compileModule编译模块
 
+> angular/packages/compiler/src/jit/compiler.ts
 
+```typescript
+export class JitCompiler {
+  ...
+  // 注释：angular 会用 Map 缓存模块工厂，并且在需要返回编译的模块工厂时，优先去缓存中寻找已经被编译过的模块工厂
+  private _compileModule(moduleType: Type): object {
+    // 注释：从缓存拿到模块工厂
+    let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !; // 注释：读取缓存
+    if (!ngModuleFactory) {
+      // 注释：读取模块的元数据
+      const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
+      // 注释：调用实例化 JITCompiler 时候传入方法，创建额外的模块服务供应商 （在 CompilerImpl 传入）
+      // Always provide a bound Compiler
+      const extraProviders = this.getExtraNgModuleProviders(moduleMeta.type.reference);
+       // 注释：创建输出上下
+      const outputCtx = createOutputContext();
+      // 注释：构建编译结果：是一个对象，只有 ngModuleFactoryVar 这么一个属性：ngModuleFactoryVar: "AppModuleNgFactory"，内部通过构建服务供应商和模块的AST，很复杂
+      const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
+      console.log(77777, moduleType, compileResult);
+      // 注释：动态创建出一个模块的工厂方法
+      ngModuleFactory = this._interpretOrJit(
+          ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
+      this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);
+    }
+    return ngModuleFactory;
+  }
+  ...
+}
+```
 
-## CompileMetadataResolver编译元数据解析器
+这里也很简单：
 
-几乎所有的编译组件和
+1. 先从从缓存拿到模块工厂函数
+2. 如果不存在工厂函数，则开始创建
+3. 读取模块的元数据
+4. 调用实例化 `JITCompiler` 时候传入方法，创建**额外的模块服务供应商** （在 `CompilerImpl` 传入）
+5. 创建输出上下
+6. 构建编译结果：是一个对象，**只有 `ngModuleFactoryVar` 这么一个属性，估计是把编译结果放缓存了**：`ngModuleFactoryVar: "AppModuleNgFactory"`
+7. 动态创建出一个模块的工厂方法并返回
 
+## NgModuleCompiler模块编译器
+
+模块编译器这里比较复杂：
+
+> angular/packages/compiler/src/ng_module_compiler.ts
+
+```typescript
+export class NgModuleCompiler {
+  constructor(private reflector: CompileReflector) {}
+
+  compile(
+      ctx: OutputContext, ngModuleMeta: CompileNgModuleMetadata,
+      extraProviders: CompileProviderMetadata[]): NgModuleCompileResult {
+    // 注释：生成一个关于模块类及文件位置的对象
+    const sourceSpan = typeSourceSpan('NgModule', ngModuleMeta.type);
+    // 注释：获得入口组件的工厂函数，默认就有 <ng-component/> 和 <app-root/>
+    const entryComponentFactories = ngModuleMeta.transitiveModule.entryComponents;
+    const bootstrapComponents = ngModuleMeta.bootstrapComponents;
+    // 注释：分析模块及模块引入的模块的服务供应商
+    const providerParser =
+        new NgModuleProviderAnalyzer(this.reflector, ngModuleMeta, extraProviders, sourceSpan);
+    // 注释：这块是AST了，生成了模块中所有服务供应商的函数 AST
+    const providerDefs =
+        [componentFactoryResolverProviderDef(
+             this.reflector, ctx, NodeFlags.None, entryComponentFactories)]
+            .concat(providerParser.parse().map((provider) => providerDef(ctx, provider)))
+            .map(({providerExpr, depsExpr, flags, tokenExpr}) => {
+              return o.importExpr(Identifiers.moduleProviderDef).callFn([
+                o.literal(flags), tokenExpr, providerExpr, depsExpr
+              ]);
+            });
+    
+    // 注释：这块是AST了，生成了模块的 AST
+    const ngModuleDef = o.importExpr(Identifiers.moduleDef).callFn([o.literalArr(providerDefs)]);
+    const ngModuleDefFactory = o.fn(
+        [new o.FnParam(LOG_VAR.name !)], [new o.ReturnStatement(ngModuleDef)], o.INFERRED_TYPE);
+
+    // 注释：创建一个字符串
+    const ngModuleFactoryVar = `${identifierName(ngModuleMeta.type)}NgFactory`;
+    // 注释：保存在上下文中声明中
+    this._createNgModuleFactory(
+        ctx, ngModuleMeta.type.reference, o.importExpr(Identifiers.createModuleFactory).callFn([
+          ctx.importExpr(ngModuleMeta.type.reference),
+          o.literalArr(bootstrapComponents.map(id => ctx.importExpr(id.reference))),
+          ngModuleDefFactory
+        ]));
+    if (ngModuleMeta.id) {
+      const id = typeof ngModuleMeta.id === 'string' ? o.literal(ngModuleMeta.id) :
+                                                       ctx.importExpr(ngModuleMeta.id);
+      const registerFactoryStmt = o.importExpr(Identifiers.RegisterModuleFactoryFn)
+                                      .callFn([id, o.variable(ngModuleFactoryVar)])
+                                      .toStmt();
+      // 注释：保存在上下文中
+      ctx.statements.push(registerFactoryStmt);
+    }
+    // 注释：返回编译结果
+    return new NgModuleCompileResult(ngModuleFactoryVar);
+  }
+  ...
+}
+```
+
+这里做了下面几件事情：
+
+1. 生成一个关于模块类及文件位置的对象
+2. 获得入口组件的工厂函数，默认就有 `<ng-component/>` 和 `<app-root/>`
+3. 分析**模块及模块引入的模块的服务供应商（provide）**，并**生成对应的函数 AST**
+   ![provide-ast](https://raw.githubusercontent.com/DimaLiLongJi/read-angular/master/docs/img/provide-ast.png)
+4. 生成模块的 AST
+5. 最后通过把编译结果保存在上下文中返回一个作为 token 的对象
+
+**其实我没太看懂为什么要转换为 AST，这里面留几个坑**
 
 
 ## 总结
 
+总结下 `@NgModule` 大概发生了什么
 
-1. 
+1. 在初始化的时候，通过 `makeDecorator` 生成 `@NgModule` 注解
+2. `@NgModule` 通过传入的参数和反射，生成注解附加在模块类的静态属性 `__annotations__` 并提供给 `JitCompiler` 编译器使用
+3. 当 `bootstrapModule` 被调用时候，在 JIT 模式下**创建了代理 `JitCompiler` 去实现真正的编译**
+4. `JitCompiler` 编译模块调用了 `compileModuleAsync` 并**返回模块工厂**，并且只做了三件事：
+   1. **加载模块** `this._loadModules`
+   2. **编译组件** `this._compileComponents`
+   3. **编译模块** `this._compileModule`

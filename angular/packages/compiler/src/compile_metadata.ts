@@ -47,6 +47,7 @@ export function identifierName(compileIdentifier: CompileIdentifierMetadata | nu
   return identifier;
 }
 
+// 注释：识别模块路径
 export function identifierModuleUrl(compileIdentifier: CompileIdentifierMetadata): string {
   const ref = compileIdentifier.reference;
   if (ref instanceof StaticSymbol) {

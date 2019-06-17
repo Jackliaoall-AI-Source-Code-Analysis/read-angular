@@ -58,7 +58,8 @@ export class JitCompiler {
   }
 
   compileModuleAsync(moduleType: Type): Promise<object> {
-    return Promise.resolve(this._compileModuleAndComponents(moduleType, false)); // 注释：其实 JTI 编译在这步做的，异步编译模块和组件
+    // 注释：其实 JTI 编译在这步做的，异步编译模块和组件
+    return Promise.resolve(this._compileModuleAndComponents(moduleType, false));
   }
 
   compileModuleAndAllComponentsSync(moduleType: Type): ModuleWithComponentFactories {
@@ -160,13 +161,20 @@ export class JitCompiler {
 
   // 注释：angular 会用 Map 缓存模块工厂，并且在需要返回编译的模块工厂时，优先去缓存中寻找已经被编译过的模块工厂
   private _compileModule(moduleType: Type): object {
+    // 注释：从缓存拿到模块工厂
     let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !; // 注释：读取缓存
     if (!ngModuleFactory) {
+      // 注释：读取模块的元数据
       const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
+      // 注释：调用实例化 JITCompiler 时候传入方法，创建额外的模块服务供应商 （在 CompilerImpl 传入）
       // Always provide a bound Compiler
       const extraProviders = this.getExtraNgModuleProviders(moduleMeta.type.reference);
+       // 注释：创建输出上下
       const outputCtx = createOutputContext();
+      // 注释：构建编译结果：是一个对象，只有 ngModuleFactoryVar 这么一个属性：ngModuleFactoryVar: "AppModuleNgFactory" 内部通过构建服务供应商和模块的AST，很复杂
       const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
+      console.log(77777, moduleType, compileResult, outputCtx);
+      // 注释：创建模块工厂函数
       ngModuleFactory = this._interpretOrJit(
           ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
       this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);

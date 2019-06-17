@@ -55,7 +55,8 @@ export class CompilerImpl implements Compiler {
   compileModuleSync<T>(moduleType: Type<T>): NgModuleFactory<T> {
     return this._delegate.compileModuleSync(moduleType) as NgModuleFactory<T>;
   }
-  compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>> { // 注释：异步创建模块及其子组件
+  // 注释：异步创建模块及其子组件
+  compileModuleAsync<T>(moduleType: Type<T>): Promise<NgModuleFactory<T>> {
     return this._delegate.compileModuleAsync(moduleType) as Promise<NgModuleFactory<T>>;
   }
   compileModuleAndAllComponentsSync<T>(moduleType: Type<T>): ModuleWithComponentFactories<T> {
@@ -199,7 +200,8 @@ export class JitCompilerFactory implements CompilerFactory {
   createCompiler(options: CompilerOptions[] = []): Compiler {
     const opts = _mergeOptions(this._defaultOptions.concat(options));
     const injector = Injector.create([
-      COMPILER_PROVIDERS, { // 注释：编译器 Compiler 在这里被替换成 CompilerImpl 
+      // 注释：编译器 Compiler 在这里被替换成 CompilerImpl 
+      COMPILER_PROVIDERS, {
         provide: CompilerConfig,
         useFactory: () => {
           return new CompilerConfig({

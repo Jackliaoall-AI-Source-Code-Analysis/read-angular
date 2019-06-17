@@ -704,7 +704,8 @@ const Zone: ZoneType = (function(global: any) {
   class Zone implements AmbientZone {
     static __symbol__: (name: string) => string = __symbol__;
 
-    static assertZonePatched() { // 注释：确认是否已经上过zone补丁
+    // 注释：确认是否已经上过zone补丁
+    static assertZonePatched() {
       if (global['Promise'] !== patches['ZoneAwarePromise']) {
         throw new Error(
             'Zone.js has detected that ZoneAwarePromise `(window|global).Promise` ' +
@@ -730,7 +731,7 @@ const Zone: ZoneType = (function(global: any) {
     static get currentTask(): Task|null {
       return _currentTask;
     }
-    // 注释：通过该方法进行猴子补丁
+    // 注释：通过该方法缓存猴子补丁
     static __load_patch(name: string, fn: _PatchFn): void {
       if (patches.hasOwnProperty(name)) {
         if (checkDuplicate) {
@@ -1125,7 +1126,6 @@ const Zone: ZoneType = (function(global: any) {
     invoke(
         targetZone: Zone, callback: Function, applyThis: any, applyArgs?: any[],
         source?: string): any {
-          console.log(55555, this._invokeZS);
       return this._invokeZS ? this._invokeZS.onInvoke!
                               (this._invokeDlgt!, this._invokeCurrZone!, targetZone, callback,
                                applyThis, applyArgs, source) :

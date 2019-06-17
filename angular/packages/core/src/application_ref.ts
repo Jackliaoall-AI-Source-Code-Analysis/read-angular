@@ -42,9 +42,12 @@ let compileNgModuleFactory:
 function compileNgModuleFactory__PRE_R3__<M>(
     injector: Injector, options: CompilerOptions,
     moduleType: Type<M>): Promise<NgModuleFactory<M>> {
-  const compilerFactory: CompilerFactory = injector.get(CompilerFactory); // 注释：其实就是平台coreDynamic 的服务商 JitCompilerFactory
-  const compiler = compilerFactory.createCompiler([options]); // 注释：调用 JitCompilerFactory 创建编译器实例 CompilerImpl
-  return compiler.compileModuleAsync(moduleType); // 注释：异步创建 ngmodule 模块工厂 （CompilerImpl 通过代理 CompilerImpl 去编译）
+  // 注释：其实就是平台coreDynamic 的服务商 JitCompilerFactory
+  const compilerFactory: CompilerFactory = injector.get(CompilerFactory);
+  // 注释：调用 JitCompilerFactory 创建编译器实例 CompilerImpl
+  const compiler = compilerFactory.createCompiler([options]);
+  // 注释：异步创建 ngmodule 模块工厂 （CompilerImpl 通过代理 CompilerImpl 去编译）
+  return compiler.compileModuleAsync(moduleType);
 }
 
 export function compileNgModuleFactory__POST_R3__<M>(
@@ -257,6 +260,7 @@ export class PlatformRef {
     // as instantiating the module creates some providers eagerly.
     // So we create a mini parent injector that just contains the new NgZone and
     // pass that as parent to the NgModuleFactory.
+    // 注释：获取Zone并初始化供应商
     const ngZoneOption = options ? options.ngZone : undefined;
     const ngZone = getNgZone(ngZoneOption);
     const providers: StaticProvider[] = [{provide: NgZone, useValue: ngZone}];
@@ -305,9 +309,11 @@ export class PlatformRef {
   bootstrapModule<M>(
       moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)|
       Array<CompilerOptions&BootstrapOptions> = []): Promise<NgModuleRef<M>> {
-    const options = optionsReducer({}, compilerOptions); // 注释：bootstrapModule` 首先通过 `optionsReducer` 递归 reduce 将编译器选项 `compilerOptions` 拍平为对象
+    // 注释：bootstrapModule` 首先通过 `optionsReducer` 递归 reduce 将编译器选项 `compilerOptions` 拍平为对象
+    const options = optionsReducer({}, compilerOptions);
+    // 注释：这里获取到编译后的模块工厂，然后返回给 bootstrapModuleFactory创建模块
     return compileNgModuleFactory(this.injector, options, moduleType)
-        .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options)); // 注释：这里获取到编译后的模块工厂，然后返回给 bootstrapModuleFactory创建模块
+        .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
   }
 
   private _moduleDoBootstrap(moduleRef: InternalNgModuleRef<any>): void {

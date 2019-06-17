@@ -50,7 +50,7 @@ const Zone: ZoneType = (function(global: any) {
 
 执行的末尾通过把 `class Zone` 赋值给顶层变量的 `Zone` 属性。
 
-### ZoneDelegate
+### ZoneDelegate代理
 
 了解下 zone 的代理 `ZoneDelegate`
 
@@ -64,13 +64,17 @@ const Zone: ZoneType = (function(global: any) {
 
 ```typescript
 class Zone implements AmbientZone {
+  ...
   constructor(parent: Zone|null, zoneSpec: ZoneSpec|null) {
+      // 注释：zoneSpec 就是 fork的时候那个配置对象
       this._parent = parent;
       this._name = zoneSpec ? zoneSpec.name || 'unnamed' : '<root>';
       this._properties = zoneSpec && zoneSpec.properties || {};
+      // 注释：实现 zone 代理
       this._zoneDelegate =
           new ZoneDelegate(this, this._parent && this._parent._zoneDelegate, zoneSpec);
-  }
+    }
+  ...
 }
 ```
 
@@ -83,6 +87,7 @@ class ZoneDelegate implements AmbientZoneDelegate {
   ...
   constructor(zone: Zone, parentDelegate: ZoneDelegate|null, zoneSpec: ZoneSpec|null) {
     ...
+    // 注释：zoneSpec 就是 fork的时候那个配置对象
      this._forkZS = zoneSpec && (zoneSpec && zoneSpec.onFork ? zoneSpec : parentDelegate!._forkZS);
       this._forkDlgt = zoneSpec && (zoneSpec.onFork ? parentDelegate : parentDelegate!._forkDlgt);
       this._forkCurrZone = zoneSpec && (zoneSpec.onFork ? this.zone : parentDelegate!.zone);
@@ -90,6 +95,7 @@ class ZoneDelegate implements AmbientZoneDelegate {
   }
 
   fork(targetZone: Zone, zoneSpec: ZoneSpec): AmbientZone {
+      // 注释：如果有 onFork 钩子就执行
       return this._forkZS ? this._forkZS.onFork!(this._forkDlgt!, this.zone, targetZone, zoneSpec) :
                             new Zone(targetZone, zoneSpec);
   }
@@ -101,7 +107,7 @@ class ZoneDelegate implements AmbientZoneDelegate {
 
 每个 `Zone` 都会有一个 `ZoneDelegate` 代理实例，主要**为 `Zone` 调用传入的回调函数，建立、调用回调函数中的异步任务，捕捉异步任务的错误**
 
-### Zone.__load_patch
+### Zone.__load_patch加载异步补丁
 
 **zone 通过 monkey patch 的方式，暴力将浏览器内的异步API进行封装并替换掉**，这一块就在这里。
 
@@ -187,6 +193,7 @@ export function patchMethod(
 const patches: {[key: string]: any} = {};
 
 class Zone implements AmbientZone {
+  // 注释：通过该方法缓存猴子补丁
   static __load_patch(name: string, fn: _PatchFn): void {
       if (patches.hasOwnProperty(name)) {
         if (checkDuplicate) {
@@ -202,7 +209,7 @@ class Zone implements AmbientZone {
 }
 ```
 
-### Task
+### Task异步任务
 
 在 zone 中，每种异步都被称为任务 ：`Task`
 
@@ -281,20 +288,26 @@ angular 启动 zonejs 是在上文说过的 `bootstrapModule` 阶段：
 > angular/packages/core/src/application_ref.ts
 
 ```typescript
-bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions):
-   Promise<NgModuleRef<M>> {
- // Note: We need to create the NgZone _before_ we instantiate the module,
- // as instantiating the module creates some providers eagerly.
- // So we create a mini parent injector that just contains the new NgZone and
- // pass that as parent to the NgModuleFactory.
- const ngZoneOption = options ? options.ngZone : undefined;
- const ngZone = getNgZone(ngZoneOption);
- const providers: StaticProvider[] = [{provide: NgZone, useValue: ngZone}];
- // Attention: Don't use ApplicationRef.run here,
- // as we want to be sure that all possible constructor calls are inside `ngZone.run`!
- return ngZone.run(() => {
+@Injectable()
+export class PlatformRef {
+  ...
+   bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions):
+      Promise<NgModuleRef<M>> {
+    // Note: We need to create the NgZone _before_ we instantiate the module,
+    // as instantiating the module creates some providers eagerly.
+    // So we create a mini parent injector that just contains the new NgZone and
+    // pass that as parent to the NgModuleFactory.
+    const ngZoneOption = options ? options.ngZone : undefined;
+    const ngZone = getNgZone(ngZoneOption);
+    const providers: StaticProvider[] = [{provide: NgZone, useValue: ngZone}];
+    // Attention: Don't use ApplicationRef.run here,
+    // as we want to be sure that all possible constructor calls are inside `ngZone.run`!
+    // 注释：会被 onInvoke 执行
+    return ngZone.run(() => {
+      ...
+    });
+   }
    ...
- });
 }
 ```
 
@@ -393,11 +406,12 @@ class NgZone {
       throw new Error(`In this configuration Angular requires Zone.js`);
     }
 
-    Zone.assertZonePatched(); // 注释：确认是否已经上过zone补丁
+    // 注释：确认是否已经上过zone补丁
+    Zone.assertZonePatched();
     const self = this as any as NgZonePrivate;
     self._nesting = 0;
-
-    self._outer = self._inner = Zone.current; // 注释：此时是 root zone
+    // 注释：此时是 root zone
+    self._outer = self._inner = Zone.current;
 
     ...
   }
@@ -426,6 +440,7 @@ interface ZoneType {
 > angular/packages/core/src/zone/ng_zone.ts
 
 ```typescript
+// 注释：zone 是 `Zone.current` 此时是 root zone
 function forkInnerZoneWithAngularBehavior(zone: NgZonePrivate) {
   zone._inner = zone._inner.fork({
     name: 'angular',
@@ -440,7 +455,7 @@ function forkInnerZoneWithAngularBehavior(zone: NgZonePrivate) {
       }
     },
 
-
+    // 注释：启动 ngZone的 run
     onInvoke: (delegate: ZoneDelegate, current: Zone, target: Zone, callback: Function,
                applyThis: any, applyArgs: any[], source: string): any => {
       try {
@@ -475,7 +490,7 @@ function forkInnerZoneWithAngularBehavior(zone: NgZonePrivate) {
 }
 ```
 
-### zone.fork
+### zone.fork创建子Zone
 
 在上面，`getNgZone` 的时候会 `new NgZone`,
 
@@ -512,6 +527,7 @@ class Zone implements AmbientZone {
           new ZoneDelegate(this, this._parent && this._parent._zoneDelegate, zoneSpec);
   }
 
+  // 注释：fork 出子zone， zoneSpec 就是那一大堆配置
   public fork(zoneSpec: ZoneSpec): AmbientZone {
     if (!zoneSpec) throw new Error('ZoneSpec required!');
     return this._zoneDelegate.fork(this, zoneSpec);
@@ -527,10 +543,13 @@ class Zone implements AmbientZone {
 
 ```typescript
 class ZoneDelegate implements AmbientZoneDelegate {
+  ...
   fork(targetZone: Zone, zoneSpec: ZoneSpec): AmbientZone {
+      // 注释：如果有 onFork 钩子就执行
       return this._forkZS ? this._forkZS.onFork!(this._forkDlgt!, this.zone, targetZone, zoneSpec) :
                             new Zone(targetZone, zoneSpec);
   }
+  ...
 }
 ```
 
@@ -540,7 +559,7 @@ class ZoneDelegate implements AmbientZoneDelegate {
 
 **所以`angular zone` 是从 `<root>Zone` fork 出的子 zone**。
 
-### ngZone.run
+### ngZone.run执行angular的Zone
 
 当初始化好 `Zone` 和 `ZoneDelegate` ，angular 调用了 `ngZone.run`
 
@@ -567,6 +586,9 @@ interface _ZoneFrame {
 let _currentZoneFrame: _ZoneFrame = {parent: null, zone: new Zone(null, null)};
 
 class Zone implements AmbientZone {
+   ...
+   // 注释：通过this._zoneDelegate.invoke执行一个函数
+   public run(callback: Function, applyThis?: any, applyArgs?: any[], source?: string): any;
    public run<T>(callback: (...args: any[]) => T, applyThis?: any, applyArgs?: any[], source?: string): T {
      _currentZoneFrame = {parent: _currentZoneFrame, zone: this};
      try {
@@ -575,6 +597,7 @@ class Zone implements AmbientZone {
        _currentZoneFrame = _currentZoneFrame.parent!;
      }
    }
+   ...
 }
 ```
 
@@ -591,20 +614,20 @@ class Zone implements AmbientZone {
 
 `ngZone.run` 又触发了 `this._zoneDelegate.invoke`
 
-### zoneDelegate.invoke
+### zoneDelegate.invoke执行方法
 
-zone 是通过 `this._zoneDelegate.invoke` 执行一个函数：
+zone 是通过 `this._zoneDelegate.invoke` 执行一个方法的：
 
 > angular/packages/core/src/zone/ng_zone.ts
 
 ```typescript
 class ZoneDelegate implements AmbientZoneDelegate {
   private _invokeZS: ZoneSpec|null;
-
+  ...
   constructor(zone: Zone, parentDelegate: ZoneDelegate|null, zoneSpec: ZoneSpec|null) {
     this._invokeZS = zoneSpec && (zoneSpec.onInvoke ? zoneSpec : parentDelegate!._invokeZS);
   }
-
+  ...
   invoke(
     targetZone: Zone, callback: Function, applyThis: any, applyArgs?: any[], source?: string): any {
     return this._invokeZS ? this._invokeZS.onInvoke!
@@ -612,6 +635,7 @@ class ZoneDelegate implements AmbientZoneDelegate {
                             applyThis, applyArgs, source) :
                            callback.apply(applyThis, applyArgs);
   }
+  ...
 }
 ```
 
@@ -677,6 +701,7 @@ function onLeave(zone: NgZonePrivate) {
 
 ```typescript
 class ZoneDelegate implements AmbientZoneDelegate {
+  ...
   invoke(
         targetZone: Zone, callback: Function, applyThis: any, applyArgs?: any[],
         source?: string): any {
@@ -685,6 +710,7 @@ class ZoneDelegate implements AmbientZoneDelegate {
                                applyThis, applyArgs, source) :
                               callback.apply(applyThis, applyArgs);
     }
+    ...
 }
 ```
 

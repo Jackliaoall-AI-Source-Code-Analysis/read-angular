@@ -24,7 +24,7 @@ platformBrowserDynamic().bootstrapModule(AppModule)
 在 angular 的世界中，所有的app都是由 `platformBrowserDynamic()` 提供的 `bootstrapModule` 方法引导根模块或主模块启动的。
 
 
-## platform
+## platform平台
 
 angular 抽象出 platform，来实现跨平台。
 
@@ -59,6 +59,11 @@ export const platformBrowserDynamic = createPlatformFactory(
 ```typescript
 /**
  * Creates a factory for a platform
+ * 
+ * 1. 判断是否已经创建过了
+ * 2. 判断是否有父 `Factory`
+ * 3. 如果有父 `Factory` 就把调用 `Factory` 时传入的 `Provider` 和调用 `createPlatformFactory` 传入的 `Provider` 合并，然后调用父 `Factory`
+ * 4. 如果没有父 `Factory` ，先创建一个 `Injector` ，然后去创建 `PlatformRef` 实例
  *
  * @publicApi
  */
@@ -70,13 +75,16 @@ export function createPlatformFactory(
   const marker = new InjectionToken(desc);
   return (extraProviders: StaticProvider[] = []) => {
     let platform = getPlatform();
+    // 注释：判断是否存在平台实例
     if (!platform || platform.injector.get(ALLOW_MULTIPLE_PLATFORMS, false)) {
       if (parentPlatformFactory) {
+        // 注释：调用父平台方法
         parentPlatformFactory(
             providers.concat(extraProviders).concat({provide: marker, useValue: true}));
       } else {
         const injectedProviders: StaticProvider[] =
             providers.concat(extraProviders).concat({provide: marker, useValue: true});
+        // 注释：Injector.create创建平台实例，并获取设置为全局平台实例
         createPlatform(Injector.create({providers: injectedProviders, name: desc}));
       }
     }
@@ -133,6 +141,7 @@ export function createPlatform(injector: Injector): PlatformRef {
         'There can be only one platform. Destroy the previous one to create a new one.');
   }
   _platform = injector.get(PlatformRef);
+  // 注释：初始化平台时将执行的函数，平台browserDynamic提供
   const inits = injector.get(PLATFORM_INITIALIZER, null);
   if (inits) inits.forEach((init: any) => init());
   return _platform;
@@ -170,7 +179,7 @@ export const platformBrowserDynamic = createPlatformFactory(
  * @publicApi
  */
 export const INTERNAL_BROWSER_DYNAMIC_PLATFORM_PROVIDERS: StaticProvider[] = [
-  INTERNAL_BROWSER_PLATFORM_PROVIDERS,
+  INTERNAL_BROWSER_PLATFORM_PROVIDERS, // 注释：此处会注入初始化的几个方法
   {
     provide: COMPILER_OPTIONS,
     useValue: {providers: [{provide: ResourceLoader, useClass: ResourceLoaderImpl, deps: []}]},
@@ -189,7 +198,7 @@ export const INTERNAL_BROWSER_DYNAMIC_PLATFORM_PROVIDERS: StaticProvider[] = [
 ```typescript
 export const INTERNAL_BROWSER_PLATFORM_PROVIDERS: StaticProvider[] = [
   {provide: PLATFORM_ID, useValue: PLATFORM_BROWSER_ID},
-  {provide: PLATFORM_INITIALIZER, useValue: initDomAdapter, multi: true},
+  {provide: PLATFORM_INITIALIZER, useValue: initDomAdapter, multi: true}, // 注释：初始化的方法
   {provide: PlatformLocation, useClass: BrowserPlatformLocation, deps: [DOCUMENT]},
   {provide: DOCUMENT, useFactory: _document, deps: []},
 ];
@@ -273,6 +282,7 @@ export class JitCompilerFactory implements CompilerFactory {
   createCompiler(options: CompilerOptions[] = []): Compiler {
     const opts = _mergeOptions(this._defaultOptions.concat(options));
     const injector = Injector.create([
+      // 注释：编译器 Compiler 在这里被替换成 CompilerImpl 
       COMPILER_PROVIDERS, {
         provide: CompilerConfig,
         useFactory: () => {
@@ -297,7 +307,7 @@ export class JitCompilerFactory implements CompilerFactory {
 }
 ```
 
-编译器在 `COMPILER_PROVIDERS` 作为服务提供商被提供给注射器：
+编译器在 `COMPILER_PROVIDERS` 作为服务提供商被提供给注射器**这里很重要，后面的编译器会大量用到**：
 
 > angular/packages/platform-browser-dynamic/src/compiler_factory.ts
 
@@ -307,18 +317,26 @@ export class JitCompilerFactory implements CompilerFactory {
  * template compilation.
  */
 export const COMPILER_PROVIDERS = <StaticProvider[]>[
+  // 注释：这里也是一个核心点-编译反射器
   {provide: CompileReflector, useValue: new JitReflector()},
+  // 注释：ResourceLoader- 资源加载器
   {provide: ResourceLoader, useValue: _NO_RESOURCE_LOADER},
+  // 注释：jit 摘要解析器
   {provide: JitSummaryResolver, deps: []},
+  // 注释：摘要解析器
   {provide: SummaryResolver, useExisting: JitSummaryResolver},
   {provide: Console, deps: []},
+  // 注释：语法分析器
   {provide: Lexer, deps: []},
+  // 注释：解析器器
   {provide: Parser, deps: [Lexer]},
+  // 注释：基本的HTML解析器
   {
     provide: baseHtmlParser,
     useClass: HtmlParser,
     deps: [],
   },
+  // 注释：国际化的HTML解析器
   {
     provide: I18NHtmlParser,
     useFactory: (parser: HtmlParser, translations: string | null, format: string,
@@ -326,6 +344,7 @@ export const COMPILER_PROVIDERS = <StaticProvider[]>[
       translations = translations || '';
       const missingTranslation =
           translations ? config.missingTranslation ! : MissingTranslationStrategy.Ignore;
+      // 注释：new 国际化的HTML解析器
       return new I18NHtmlParser(parser, translations, format, missingTranslation, console);
     },
     deps: [
@@ -340,13 +359,16 @@ export const COMPILER_PROVIDERS = <StaticProvider[]>[
     provide: HtmlParser,
     useExisting: I18NHtmlParser,
   },
+  // 注释：模板解析器
   {
     provide: TemplateParser, deps: [CompilerConfig, CompileReflector,
     Parser, ElementSchemaRegistry,
     I18NHtmlParser, Console]
   },
   { provide: JitEvaluator, useClass: JitEvaluator, deps: [] },
+  // 注释：指令规范器
   { provide: DirectiveNormalizer, deps: [ResourceLoader, UrlResolver, HtmlParser, CompilerConfig]},
+  // 注释：元数据解析器
   { provide: CompileMetadataResolver, deps: [CompilerConfig, HtmlParser, NgModuleResolver,
                       DirectiveResolver, PipeResolver,
                       SummaryResolver,
@@ -356,20 +378,31 @@ export const COMPILER_PROVIDERS = <StaticProvider[]>[
                       CompileReflector,
                       [Optional, ERROR_COLLECTOR_TOKEN]]},
   DEFAULT_PACKAGE_URL_PROVIDER,
+  // 注释：样式编译器
   { provide: StyleCompiler, deps: [UrlResolver]},
+  // 注释：view 编译器
   { provide: ViewCompiler, deps: [CompileReflector]},
+  // 注释：NgModule编译器
   { provide: NgModuleCompiler, deps: [CompileReflector] },
+  // 注释：编译器配置项目
   { provide: CompilerConfig, useValue: new CompilerConfig()},
+  // 注释：JIT时，Compiler的服务供应商 CompilerImpl
   { provide: Compiler, useClass: CompilerImpl, deps: [Injector, CompileMetadataResolver,
                                 TemplateParser, StyleCompiler,
                                 ViewCompiler, NgModuleCompiler,
                                 SummaryResolver, CompileReflector, JitEvaluator, CompilerConfig,
                                 Console]},
+  // 注释：DOM schema
   { provide: DomElementSchemaRegistry, deps: []},
+  // 注释：Element schema
   { provide: ElementSchemaRegistry, useExisting: DomElementSchemaRegistry},
+  // 注释：URL解析器
   { provide: UrlResolver, deps: [PACKAGE_ROOT_URL]},
+  // 注释：指令解析器
   { provide: DirectiveResolver, deps: [CompileReflector]},
+  // 注释：管道解析器
   { provide: PipeResolver, deps: [CompileReflector]},
+  // 注释：模块解析器
   { provide: NgModuleResolver, deps: [CompileReflector]},
 ];
 ```
@@ -393,7 +426,7 @@ import {TestabilityRegistry} from './testability/testability';
 const _CORE_PLATFORM_PROVIDERS: StaticProvider[] = [
   // Set a default platform name for platforms that don't set it explicitly.
   {provide: PLATFORM_ID, useValue: 'unknown'},
-  // 在这里 PlatformRef 被加入了 injector 并在 createPlatformFactory 中实例化
+  // 注释：在这里 PlatformRef 被加入了 injector 并在 createPlatformFactory 中实例化
   {provide: PlatformRef, deps: [Injector]},
   {provide: TestabilityRegistry, deps: []},
   {provide: Console, deps: []},
@@ -437,7 +470,9 @@ export class PlatformRef {
   bootstrapModule<M>(
       moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)|
       Array<CompilerOptions&BootstrapOptions> = []): Promise<NgModuleRef<M>> {
+    // 注释：bootstrapModule` 首先通过 `optionsReducer` 递归 reduce 将编译器选项 `compilerOptions` 拍平为对象
     const options = optionsReducer({}, compilerOptions);
+    // 注释：这里获取到编译后的模块工厂，然后返回给 bootstrapModuleFactory创建模块
     return compileNgModuleFactory(this.injector, options, moduleType)
         .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
   }
