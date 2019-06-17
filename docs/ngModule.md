@@ -197,7 +197,8 @@ function makeMetadataCtor(props?: (...args: any[]) => any): any {
 
 最后大家可以**打印下 `(AppModule as any).__annotations__` 来进行验证**，这就是存在模块类上的注解实例。
 
-![AppModule.__annotations__](https://raw.githubusercontent.com/DimaLiLongJi/read-angular/master/docs/img/annotations.png)
+![AppModule.__annotations__](https://user-gold-cdn.xitu.io/2019/6/17/16b650a1f8be48ef?imageView2/0/w/1280/h/960/format/webp/ignore-error/1)
+<!-- ![AppModule.__annotations__](https://raw.githubusercontent.com/DimaLiLongJi/read-angular/master/docs/img/annotations.png) -->
 
 
 ## 编译模块
