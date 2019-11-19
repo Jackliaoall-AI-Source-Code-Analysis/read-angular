@@ -7,6 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
+    "doc": "docsify serve ./docs --port 2334",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "docsify serve ./docs --port 4234"
   },
@@ -19,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/DimaLiLongJi/read-angular/issues"
   },
-  "homepage": "https://github.com/DimaLiLongJi/read-angular#readme"
+  "homepage": "https://github.com/DimaLiLongJi/read-angular#readme",
+  "devDependencies": {
+    "docsify-cli": "^4.3.0"
+  }
 }

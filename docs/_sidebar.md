@@ -3,3 +3,4 @@
   - [引导模块](bootstrapModule)
   - [初始化zone](initZone)
   - [angular模块](ngModule)
+  - [组件与指令介绍](componentAndDirective)

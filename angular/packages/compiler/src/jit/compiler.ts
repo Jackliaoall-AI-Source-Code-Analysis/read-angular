@@ -147,6 +147,7 @@ export class JitCompiler {
       this._filterJitIdentifiers(moduleMeta.declaredDirectives).forEach((ref) => {
         // 注释：异步编加载数据中全部指令组件和和管道
         const promise =
+            // 这里先提取指令和组件的元数据
             this._metadataResolver.loadDirectiveMetadata(moduleMeta.type.reference, ref, isSync);
         if (promise) {
           loading.push(promise);
@@ -185,8 +186,9 @@ export class JitCompiler {
   // 注释：编译主模块上的所有组件和指令
   // 主要目的：拿到 组件的模板、入口组件的模板、组件的入口组件的模板(原来组件也有入口组件)，最终拿到了所有涉及的模板，放在 templates 中
   _compileComponents(mainModule: Type, allComponentFactories: object[]|null) {
-    // 注释：获取主模块
+    // 注释：获取主模块的元数据
     const ngModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
+    console.log(3412312312, mainModule, ngModule);
     const moduleByJitDirective = new Map<any, CompileNgModuleMetadata>();
     const templates = new Set<CompiledTemplate>();
 

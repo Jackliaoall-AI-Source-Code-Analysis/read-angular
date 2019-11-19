@@ -495,6 +495,7 @@ export class CompileMetadataResolver {
     return compileMeta;
   }
 
+  // 注释：获取模块的元数据
   getNgModuleMetadata(
       moduleType: any, throwIfNotFound = true,
       alreadyCollecting: Set<any>|null = null): cpl.CompileNgModuleMetadata|null {
