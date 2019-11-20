@@ -546,22 +546,22 @@ export class CompileShallowModuleMetadata {
  * Metadata regarding compilation of a module.
  */
 export class CompileNgModuleMetadata {
-  type: CompileTypeMetadata;
-  declaredDirectives: CompileIdentifierMetadata[];
-  exportedDirectives: CompileIdentifierMetadata[];
-  declaredPipes: CompileIdentifierMetadata[];
+  type: CompileTypeMetadata; // 注释：模块类的信息，包含diDeps di依赖，lifecycleHooks生命周期钩子，reference 类本身
+  declaredDirectives: CompileIdentifierMetadata[]; // 注释：声明的指令和组件
+  exportedDirectives: CompileIdentifierMetadata[]; // 注释：导出的指令和组件
+  declaredPipes: CompileIdentifierMetadata[]; // 注释：声明的管道
 
-  exportedPipes: CompileIdentifierMetadata[];
-  entryComponents: CompileEntryComponentMetadata[];
-  bootstrapComponents: CompileIdentifierMetadata[];
-  providers: CompileProviderMetadata[];
+  exportedPipes: CompileIdentifierMetadata[]; // 注释：导出的管道
+  entryComponents: CompileEntryComponentMetadata[]; // 注释：同组件
+  bootstrapComponents: CompileIdentifierMetadata[]; // 注释：引导入口的组件
+  providers: CompileProviderMetadata[]; // 注释：DI供应商
 
-  importedModules: CompileNgModuleSummary[];
-  exportedModules: CompileNgModuleSummary[];
-  schemas: SchemaMetadata[];
-  id: string|null;
+  importedModules: CompileNgModuleSummary[]; // 注释：引入模块
+  exportedModules: CompileNgModuleSummary[]; // 注释：导出模块
+  schemas: SchemaMetadata[]; // 注释：模式
+  id: string|null; // 注释：模块ID
 
-  transitiveModule: TransitiveCompileNgModuleMetadata;
+  transitiveModule: TransitiveCompileNgModuleMetadata; // 注释：需要传递的模块,用于收集从另一个模块导入的指令（如果导入模块的传递模块具有导出的指令）或在当前模块中声明
 
   constructor({type, providers, declaredDirectives, exportedDirectives, declaredPipes,
                exportedPipes, entryComponents, bootstrapComponents, importedModules,

@@ -220,60 +220,6 @@ export class JitCompiler {
 
 **angular 会用 `Map` 缓存模块，并且在需要返回编译的模块工厂时，优先去缓存中寻找已经被编译过的模块**
 
-### 编译模块的元数据
-
-这里要注意下咱们传入的模块元数据最后成什么了：
-
-> angular/packages/compiler/src/jit/compiler.ts
-
-```typescript
-export class JitCompiler {
-   ...
-   private _compileModule(moduleType: Type): object {
-     // 注释：从缓存中获得编译过的模块
-    let ngModuleFactory = this._compiledNgModuleCache.get(moduleType) !;
-    if (!ngModuleFactory) {
-      // 注释：模块元数据
-      const moduleMeta = this._metadataResolver.getNgModuleMetadata(moduleType) !;
-      // Always provide a bound Compiler
-      const extraProviders = this.getExtraNgModuleProviders(moduleMeta.type.reference);
-      const outputCtx = createOutputContext();
-      const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
-      ngModuleFactory = this._interpretOrJit(
-          ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
-      this._compiledNgModuleCache.set(moduleMeta.type.reference, ngModuleFactory);
-    }
-    return ngModuleFactory;
-   }
-   ...
-}
-```
-
-通过 `_metadataResolver.getNgModuleMetadata` 模块的元数据被编译成了 `CompileNgModuleMetadata` 的实例：
-
-> angular/packages/compiler/src/compile_metadata.ts
-
-```typescript
-export class CompileNgModuleMetadata {
-  type: CompileTypeMetadata;
-  declaredDirectives: CompileIdentifierMetadata[];
-  exportedDirectives: CompileIdentifierMetadata[];
-  declaredPipes: CompileIdentifierMetadata[];
-
-  exportedPipes: CompileIdentifierMetadata[];
-  entryComponents: CompileEntryComponentMetadata[];
-  bootstrapComponents: CompileIdentifierMetadata[];
-  providers: CompileProviderMetadata[];
-
-  importedModules: CompileNgModuleSummary[];
-  exportedModules: CompileNgModuleSummary[];
-  schemas: SchemaMetadata[];
-  id: string|null;
-
-  transitiveModule: TransitiveCompileNgModuleMetadata;
-}
-```
-
 
 ## bootstrapModuleFactory
 

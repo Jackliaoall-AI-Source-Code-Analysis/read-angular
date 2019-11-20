@@ -573,6 +573,33 @@ export class JitCompiler {
 4. 第二次遍历，找出所有从根模块开始的模块树上入口的组件（`entryComponents`），并编译其模板
 5. 最后编译所有模板
 
+注意下这里**模块的元数据**被编译成了什么：
+
+通过 `this._metadataResolver.getNgModuleMetadata` 模块的元数据**被编译成了 `CompileNgModuleMetadata` 的实例**：
+
+> angular/packages/compiler/src/compile_metadata.ts
+
+```typescript
+export class CompileNgModuleMetadata {
+  type: CompileTypeMetadata; // 注释：模块类的信息，包含diDeps di依赖，lifecycleHooks生命周期钩子，reference 类本身
+  declaredDirectives: CompileIdentifierMetadata[]; // 注释：声明的指令和组件
+  exportedDirectives: CompileIdentifierMetadata[]; // 注释：导出的指令和组件
+  declaredPipes: CompileIdentifierMetadata[]; // 注释：声明的管道
+
+  exportedPipes: CompileIdentifierMetadata[]; // 注释：导出的管道
+  entryComponents: CompileEntryComponentMetadata[]; // 注释：同组件
+  bootstrapComponents: CompileIdentifierMetadata[]; // 注释：引导入口的组件
+  providers: CompileProviderMetadata[]; // 注释：DI供应商
+
+  importedModules: CompileNgModuleSummary[]; // 注释：引入模块
+  exportedModules: CompileNgModuleSummary[]; // 注释：导出模块
+  schemas: SchemaMetadata[]; // 注释：模式
+  id: string|null; // 注释：模块ID
+
+  transitiveModule: TransitiveCompileNgModuleMetadata; // 注释：需要传递的模块,用于收集从另一个模块导入的指令（如果导入模块的传递模块具有导出的指令）或在当前模块中声明
+}
+```
+
 至于如何编译的模板，之后讲组件的时候再说吧。
 
 `_compileComponents` 的**目的是拿到被声明的组件的模板、入口组件的模板，最终拿到了所有涉及的模板**
@@ -598,7 +625,6 @@ export class JitCompiler {
       const outputCtx = createOutputContext();
       // 注释：构建编译结果：是一个对象，只有 ngModuleFactoryVar 这么一个属性：ngModuleFactoryVar: "AppModuleNgFactory"，内部通过构建服务供应商和模块的AST，很复杂
       const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
-      console.log(77777, moduleType, compileResult);
       // 注释：动态创建出一个模块的工厂方法
       ngModuleFactory = this._interpretOrJit(
           ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];

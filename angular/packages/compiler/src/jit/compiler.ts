@@ -57,6 +57,7 @@ export class JitCompiler {
     return SyncAsync.assertSync(this._compileModuleAndComponents(moduleType, true));
   }
 
+  // 注释：编译bootstrap的模块
   compileModuleAsync(moduleType: Type): Promise<object> {
     // 注释：其实 JTI 编译在这步做的，异步编译模块和组件
     return Promise.resolve(this._compileModuleAndComponents(moduleType, false));
@@ -136,13 +137,13 @@ export class JitCompiler {
     const loading: Promise<any>[] = [];
     // 注释：从元数据中获得根模块的 __annotations__ 并格式化
     const mainNgModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
-
-    // 注释：过滤 AOT 模块并异步编加载数据中全部指令组件和和管道
+    // 注释：过滤 AOT 模块并异步编加载数据中全部模块传递过来的指令组件和和管道
     // Note: for runtime compilation, we want to transitively compile all modules,
     // so we also need to load the declared directives / pipes for all nested modules.
     // 注释：过滤掉根模块元数据中的 AOT 模块
     this._filterJitIdentifiers(mainNgModule.transitiveModule.modules).forEach((nestedNgModule) => {
       // getNgModuleMetadata only returns null if the value passed in is not an NgModule
+      // 注释：获取模块的元数据
       const moduleMeta = this._metadataResolver.getNgModuleMetadata(nestedNgModule) !;
       this._filterJitIdentifiers(moduleMeta.declaredDirectives).forEach((ref) => {
         // 注释：异步编加载数据中全部指令组件和和管道
@@ -188,23 +189,27 @@ export class JitCompiler {
   _compileComponents(mainModule: Type, allComponentFactories: object[]|null) {
     // 注释：获取主模块的元数据
     const ngModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
-    console.log(3412312312, mainModule, ngModule);
+    // 注释：jit 模块中所有的指令Map，key为指令组件，value为所属的模块
     const moduleByJitDirective = new Map<any, CompileNgModuleMetadata>();
+    // 注释：组件的集合
     const templates = new Set<CompiledTemplate>();
 
-    // 注释：过滤AOT模块
+    // 注释：过滤AOT模块并返回包括自身和引入模块的所有模块
     const transJitModules = this._filterJitIdentifiers(ngModule.transitiveModule.modules);
 
-    // 注释：编译各个模块的模板，（localMod 是模块的class）
+    // 注释：编译所有模块中组件的模板，（localMod 是模块的class），顺序为先 import 后 declare 的
     transJitModules.forEach((localMod) => {
       const localModuleMeta = this._metadataResolver.getNgModuleMetadata(localMod) !;
       // 注释：指令和组件都是 declaredDirectives (在angular里 @Component组件 继承了 指令@Directive)
       this._filterJitIdentifiers(localModuleMeta.declaredDirectives).forEach((dirRef) => {
-        moduleByJitDirective.set(dirRef, localModuleMeta);
+        moduleByJitDirective.set(dirRef, localModuleMeta); // 注释：key为指令组件，value为所属的模块
+        // 注释：指令组件的元数据，为 CompileDirectiveMetadata 的实例
         const dirMeta = this._metadataResolver.getDirectiveMetadata(dirRef);
         // 注释：只编译组件
-        // 注释：拿到所有的模板，并放在 templates：Set 中
+        // 注释：拿到组件的模板，并放在组件的集合 templates：Set 中
         if (dirMeta.isComponent) {
+          console.log(787831, dirMeta);
+          // 注释：编译组件的模板
           templates.add(this._createCompiledTemplate(dirMeta, localModuleMeta));
           if (allComponentFactories) {
             const template =
@@ -280,13 +285,18 @@ export class JitCompiler {
     return compiledTemplate;
   }
 
+  // 注释：创建编译过的组件模板类
   private _createCompiledTemplate(
       compMeta: CompileDirectiveMetadata, ngModule: CompileNgModuleMetadata): CompiledTemplate {
+    // 注释：优先缓存
     let compiledTemplate = this._compiledTemplateCache.get(compMeta.type.reference);
     if (!compiledTemplate) {
+      // 注释：确认是否是组件 isComponent
       assertComponent(compMeta);
+      // 创建编译过的模板类
       compiledTemplate = new CompiledTemplate(
           false, compMeta.type, compMeta, ngModule, ngModule.transitiveModule.directives);
+      // 注释：放入缓存
       this._compiledTemplateCache.set(compMeta.type.reference, compiledTemplate);
     }
     return compiledTemplate;
@@ -364,6 +374,7 @@ export class JitCompiler {
   }
 }
 
+// 注释：编译组件类
 class CompiledTemplate {
   private _viewClass: Function = null !;
   isCompiled = false;
@@ -373,6 +384,7 @@ class CompiledTemplate {
       public compMeta: CompileDirectiveMetadata, public ngModule: CompileNgModuleMetadata,
       public directives: CompileIdentifierMetadata[]) {}
 
+  // 注释：编译
   compiled(viewClass: Function, rendererType: any) {
     this._viewClass = viewClass;
     (<ProxyClass>this.compMeta.componentViewType).setDelegate(viewClass);
