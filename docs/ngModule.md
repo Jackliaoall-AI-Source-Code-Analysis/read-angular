@@ -139,7 +139,7 @@ export function makeDecorator<T>(
       const annotations = cls.hasOwnProperty(ANNOTATIONS) ?
           (cls as any)[ANNOTATIONS] :
           Object.defineProperty(cls, ANNOTATIONS, {value: []})[ANNOTATIONS];
-      annotations.push(annotationInstance); // 注释：将装饰器的处理结果存在
+      annotations.push(annotationInstance); // 注释：将装饰器的处理结果保存
 
       if (additionalProcessing) additionalProcessing(cls);
 

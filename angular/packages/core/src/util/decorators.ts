@@ -62,10 +62,11 @@ export function makeDecorator<T>(
       if (typeFn) typeFn(cls, ...args);
       // Use of Object.defineProperty is important since it creates non-enumerable property which
       // prevents the property is copied during subclassing.
+      // 注释：如果有旧设置没有就创建一个属性
       const annotations = cls.hasOwnProperty(ANNOTATIONS) ?
           (cls as any)[ANNOTATIONS] :
           Object.defineProperty(cls, ANNOTATIONS, {value: []})[ANNOTATIONS];
-      annotations.push(annotationInstance); // 注释：将装饰器的处理结果存在
+      annotations.push(annotationInstance); // 注释：将装饰器的处理结果保存
 
       if (additionalProcessing) additionalProcessing(cls);
 
@@ -74,10 +75,12 @@ export function makeDecorator<T>(
   }
 
   if (parentClass) {
-    DecoratorFactory.prototype = Object.create(parentClass.prototype); // 注释：使实例 DecoratorFactory 继承继承 parentClass
+    // 注释：使实例 DecoratorFactory 继承继承 parentClass
+    DecoratorFactory.prototype = Object.create(parentClass.prototype);
   }
 
-  DecoratorFactory.prototype.ngMetadataName = name; // 注释：装饰器名称会被放在原型属性 ngMetadataName 上
+  // 注释：装饰器名称会被放在原型属性 ngMetadataName 上
+  DecoratorFactory.prototype.ngMetadataName = name;
   (DecoratorFactory as any).annotationCls = DecoratorFactory;
   return DecoratorFactory as any;
 }

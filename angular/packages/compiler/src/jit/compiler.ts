@@ -148,7 +148,7 @@ export class JitCompiler {
       this._filterJitIdentifiers(moduleMeta.declaredDirectives).forEach((ref) => {
         // 注释：异步编加载数据中全部指令组件和和管道
         const promise =
-            // 这里先提取指令和组件的元数据
+            // 这里先提取所有指令和组件的元数据，并把元数据中的 template 字符串编译成 htmlAST
             this._metadataResolver.loadDirectiveMetadata(moduleMeta.type.reference, ref, isSync);
         if (promise) {
           loading.push(promise);
@@ -175,7 +175,6 @@ export class JitCompiler {
       const outputCtx = createOutputContext();
       // 注释：构建编译结果：是一个对象，只有 ngModuleFactoryVar 这么一个属性：ngModuleFactoryVar: "AppModuleNgFactory" 内部通过构建服务供应商和模块的AST，很复杂
       const compileResult = this._ngModuleCompiler.compile(outputCtx, moduleMeta, extraProviders);
-      console.log(77777, moduleType, compileResult, outputCtx);
       // 注释：创建模块工厂函数
       ngModuleFactory = this._interpretOrJit(
           ngModuleJitUrl(moduleMeta), outputCtx.statements)[compileResult.ngModuleFactoryVar];
@@ -185,19 +184,19 @@ export class JitCompiler {
   }
 
   // 注释：编译主模块上的所有组件和指令
-  // 主要目的：拿到 组件的模板、入口组件的模板、组件的入口组件的模板(原来组件也有入口组件)，最终拿到了所有涉及的模板，放在 templates 中
+  // 主要目的：拿到 组件模板编译类，放在 templates 中
   _compileComponents(mainModule: Type, allComponentFactories: object[]|null) {
     // 注释：获取主模块的元数据
     const ngModule = this._metadataResolver.getNgModuleMetadata(mainModule) !;
     // 注释：jit 模块中所有的指令Map，key为指令组件，value为所属的模块
     const moduleByJitDirective = new Map<any, CompileNgModuleMetadata>();
-    // 注释：组件的集合
+    // 注释：组件模板编译类的集合
     const templates = new Set<CompiledTemplate>();
 
     // 注释：过滤AOT模块并返回包括自身和引入模块的所有模块
     const transJitModules = this._filterJitIdentifiers(ngModule.transitiveModule.modules);
 
-    // 注释：编译所有模块中组件的模板，（localMod 是模块的class），顺序为先 import 后 declare 的
+    // 注释：编译所有模块中组件，（localMod 是模块的class），顺序为先 import 后 declare 的
     transJitModules.forEach((localMod) => {
       const localModuleMeta = this._metadataResolver.getNgModuleMetadata(localMod) !;
       // 注释：指令和组件都是 declaredDirectives (在angular里 @Component组件 继承了 指令@Directive)
@@ -208,8 +207,7 @@ export class JitCompiler {
         // 注释：只编译组件
         // 注释：拿到组件的模板，并放在组件的集合 templates：Set 中
         if (dirMeta.isComponent) {
-          console.log(787831, dirMeta);
-          // 注释：编译组件的模板
+          // 注释：创建并收集组件模板编译类
           templates.add(this._createCompiledTemplate(dirMeta, localModuleMeta));
           if (allComponentFactories) {
             const template =
@@ -221,9 +219,10 @@ export class JitCompiler {
       });
     });
 
-    // 注释：编译入口组件的模板
+    // 注释：再编译每个组件指令上的entryComponent类
     transJitModules.forEach((localMod) => {
       const localModuleMeta = this._metadataResolver.getNgModuleMetadata(localMod) !;
+      // 先编译`declarations`的指令和组件的 `entryComponents` 组件
       this._filterJitIdentifiers(localModuleMeta.declaredDirectives).forEach((dirRef) => {
         const dirMeta = this._metadataResolver.getDirectiveMetadata(dirRef);
         if (dirMeta.isComponent) {
@@ -234,6 +233,7 @@ export class JitCompiler {
           });
         }
       });
+      // 再编译模块上 `entryComponents` 元数据的组件
       localModuleMeta.entryComponents.forEach((entryComponentType) => {
         if (!this.hasAotSummary(entryComponentType.componentType)) {
           const moduleMeta = moduleByJitDirective.get(entryComponentType.componentType) !;
@@ -243,7 +243,7 @@ export class JitCompiler {
       });
     });
 
-    // 注释：执行 _compileTemplate 编译模板
+    // 注释：执行 _compileTemplate 编译组件模板编译类
     templates.forEach((template) => this._compileTemplate(template));
   }
 
@@ -285,15 +285,15 @@ export class JitCompiler {
     return compiledTemplate;
   }
 
-  // 注释：创建编译过的组件模板类
+  // 注释：创建组件编译类
   private _createCompiledTemplate(
       compMeta: CompileDirectiveMetadata, ngModule: CompileNgModuleMetadata): CompiledTemplate {
-    // 注释：优先缓存
+    // 注释：优先取缓存
     let compiledTemplate = this._compiledTemplateCache.get(compMeta.type.reference);
     if (!compiledTemplate) {
       // 注释：确认是否是组件 isComponent
       assertComponent(compMeta);
-      // 创建编译过的模板类
+      // 创建组件编译类，把组件所属模块（compType），可用的指令和组件（directives），组件元数据包含解析到的DI依赖和生命周期传入（compMeta）
       compiledTemplate = new CompiledTemplate(
           false, compMeta.type, compMeta, ngModule, ngModule.transitiveModule.directives);
       // 注释：放入缓存
@@ -302,10 +302,13 @@ export class JitCompiler {
     return compiledTemplate;
   }
 
+  // 注释：编译组件和指令
   private _compileTemplate(template: CompiledTemplate) {
+    // 如果编译过了则跳出，`isCompiled` 在  `CompiledTemplate` 的 `compiled` 方法中被设置成true
     if (template.isCompiled) {
       return;
     }
+    console.log(23131, template);
     const compMeta = template.compMeta;
     const externalStylesheetsByModuleUrl = new Map<string, CompiledStylesheet>();
     const outputContext = createOutputContext();
@@ -384,7 +387,7 @@ class CompiledTemplate {
       public compMeta: CompileDirectiveMetadata, public ngModule: CompileNgModuleMetadata,
       public directives: CompileIdentifierMetadata[]) {}
 
-  // 注释：编译
+  // 注释：编译方法
   compiled(viewClass: Function, rendererType: any) {
     this._viewClass = viewClass;
     (<ProxyClass>this.compMeta.componentViewType).setDelegate(viewClass);

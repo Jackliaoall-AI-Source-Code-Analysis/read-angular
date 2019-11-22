@@ -39,10 +39,33 @@ export class DirectiveResolver {
   resolve(type: Type, throwIfNotFound: true): Directive;
   resolve(type: Type, throwIfNotFound: boolean): Directive|null;
   resolve(type: Type, throwIfNotFound = true): Directive|null {
+    // 注释：通过类的反射获取注解 注解位于静态属性 __annotations__
+    // 注释：此时templateUrl已经成为template字符串
+    // ngMetadataName 在原型链中
+    // {
+    //   changeDetection: 1
+    //   selector: "app-root"
+    //   styles: ["↵/*# sourceMappingURL=data:application/json;base64…ZpbGUiOiJzcmMvYXBwL2FwcC5jb21wb25lbnQubGVzcyJ9 */"]
+    //   template: "<!--The content below is only a placeholder and can be replaced.-->↵<div style="text-align:center">↵  <h1>↵    Welcome to {{ title }}!↵  </h1>↵  <img width="300" alt="Angular Logo" src=
+    //   __proto__: {
+    //     ngMetadataName: "Component"
+    //   }
+    // }
     const typeMetadata = this._reflector.annotations(resolveForwardRef(type));
     if (typeMetadata) {
+      // 筛选元数据，把非属性元数据过滤掉
       const metadata = findLast(typeMetadata, isDirectiveMetadata);
       if (metadata) {
+        // 获取prop元数据（其实就是类被注解过的属性） 位于静态属性 __prop__metadata__ 上
+        // ngMetadataName 在原型链中
+        // {
+        //   testValue: [
+        //     bindingPropertyName: "testValue"
+        //   ],
+        //   __proto__: {
+        //     ngMetadataName: "Input"
+        //   }
+        // }
         const propertyMetadata = this._reflector.propMetadata(type);
         const guards = this._reflector.guards(type);
         return this._mergeWithPropertyMetadata(metadata, propertyMetadata, guards, type);

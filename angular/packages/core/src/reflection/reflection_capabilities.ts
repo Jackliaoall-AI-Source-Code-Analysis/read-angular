@@ -137,6 +137,7 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
     return parameters || [];
   }
 
+  // 注释：获得类的注解
   private _ownAnnotations(typeOrFunc: Type<any>, parentCtor: any): any[]|null {
     // Prefer the direct API.
     if ((<any>typeOrFunc).annotations && (<any>typeOrFunc).annotations !== parentCtor.annotations) {
@@ -154,7 +155,8 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
 
     // API for metadata created by invoking the decorators.
     if (typeOrFunc.hasOwnProperty(ANNOTATIONS)) {
-      return (typeOrFunc as any)[ANNOTATIONS]; // 注释：获取构造模块的时候产生的注解数据
+      // 注释：类的注解元数据数据，放在类的静态属性 __annotations__ 下
+      return (typeOrFunc as any)[ANNOTATIONS];
     }
     return null;
   }
@@ -164,7 +166,8 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
       return [];
     }
     const parentCtor = getParentCtor(typeOrFunc);
-    const ownAnnotations = this._ownAnnotations(typeOrFunc, parentCtor) || []; // 注释：获取类的 ANNOTATIONS
+    // 注释：获取类的 ANNOTATIONS 
+    const ownAnnotations = this._ownAnnotations(typeOrFunc, parentCtor) || [];
     const parentAnnotations = parentCtor !== Object ? this.annotations(parentCtor) : [];
     return parentAnnotations.concat(ownAnnotations);
   }
@@ -193,11 +196,13 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
 
     // API for metadata created by invoking the decorators.
     if (typeOrFunc.hasOwnProperty(PROP_METADATA)) {
+      // 注释：属性元数据存在静态属性 __prop__metadata__ 上
       return (typeOrFunc as any)[PROP_METADATA];
     }
     return null;
   }
 
+  // 注释：获取属性元数据
   propMetadata(typeOrFunc: any): {[key: string]: any[]} {
     if (!isType(typeOrFunc)) {
       return {};
@@ -231,6 +236,9 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
     return this._ownPropMetadata(typeOrFunc, getParentCtor(typeOrFunc)) || {};
   }
 
+  // 注释：类的原型链上查找是否有该生命周期，如果有则返回该生命周期
+  // 因为 `interface` 在编译器之后就不存在了
+  // 所以目测 `angular`会把遍历使用该所有生命周期的名字，然后获取组件拥有的所有生命周期
   hasLifecycleHook(type: any, lcProperty: string): boolean {
     return type instanceof Type && lcProperty in type.prototype;
   }

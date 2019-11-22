@@ -221,6 +221,7 @@ export class CompileMetadataResolver {
       return null;
     }
     directiveType = resolveForwardRef(directiveType);
+    // 把指令和组件类解析成类解析成注解和元数据
     const {annotation, metadata} = this.getNonNormalizedDirectiveMetadata(directiveType) !;
 
     const createDirectiveMetadata = (templateMetadata: cpl.CompileTemplateMetadata | null) => {
@@ -250,6 +251,7 @@ export class CompileMetadataResolver {
       if (templateMetadata) {
         this.initComponentFactory(metadata.componentFactory !, templateMetadata.ngContentSelectors);
       }
+      // 注释：存入缓存，后续直接读缓存
       this._directiveCache.set(directiveType, normalizedDirMeta);
       this._summaryCache.set(directiveType, normalizedDirMeta.toSummary());
       return null;
@@ -257,6 +259,8 @@ export class CompileMetadataResolver {
 
     if (metadata.isComponent) {
       const template = metadata.template !;
+      // 注释：这里会把 template 字符串解析成 htmlAst
+      // 这个日后再讲
       const templateMeta = this._directiveNormalizer.normalizeTemplate({
         ngModuleType,
         componentType: directiveType,
@@ -274,6 +278,7 @@ export class CompileMetadataResolver {
         this._reportError(componentStillLoadingError(directiveType), directiveType);
         return null;
       }
+      console.log(31234134, template, templateMeta);
       return SyncAsync.then(templateMeta, createDirectiveMetadata);
     } else {
       // directive
@@ -282,6 +287,7 @@ export class CompileMetadataResolver {
     }
   }
 
+  // 注释：解析组件为注解和元数据
   getNonNormalizedDirectiveMetadata(directiveType: any):
       {annotation: Directive, metadata: cpl.CompileDirectiveMetadata}|null {
     directiveType = resolveForwardRef(directiveType);
@@ -292,6 +298,18 @@ export class CompileMetadataResolver {
     if (cacheEntry) {
       return cacheEntry;
     }
+    // 注释：解析出指令组件元数据 
+    // {
+    //   exportAs: "routerLinkActive"
+    //   guards: {}
+    //   host: {}
+    //   inputs: (2) ["routerLinkActiveOptions", "routerLinkActive"]
+    //   ngMetadataName: "Directive"
+    //   outputs: []
+    //   providers: undefined
+    //   queries: {links: PropDecoratorFactory, linksWithHrefs: PropDecoratorFactory}
+    //   selector: "[routerLinkActive]"
+    // }
     const dirMeta = this._directiveResolver.resolve(directiveType, false);
     if (!dirMeta) {
       return null;

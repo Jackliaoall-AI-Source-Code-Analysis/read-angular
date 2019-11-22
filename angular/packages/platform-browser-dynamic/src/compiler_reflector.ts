@@ -33,15 +33,18 @@ export class JitReflector implements CompileReflector {
     return this.reflectionCapabilities.parameters(typeOrFunc);
   }
   tryAnnotations(typeOrFunc: /*Type*/ any): any[] { return this.annotations(typeOrFunc); }
+  // 注释：获取类的ANNOTATIONS 类静态属性 __annotations__
   annotations(typeOrFunc: /*Type*/ any): any[] {
-    return this.reflectionCapabilities.annotations(typeOrFunc); // 注释：获取类的ANNOTATIONS
+    return this.reflectionCapabilities.annotations(typeOrFunc);
   }
   shallowAnnotations(typeOrFunc: /*Type*/ any): any[] {
     throw new Error('Not supported in JIT mode');
   }
+  // 注释：获取类的ANNOTATIONS 类静态属性 __prop__metadata__
   propMetadata(typeOrFunc: /*Type*/ any): {[key: string]: any[]} {
     return this.reflectionCapabilities.propMetadata(typeOrFunc);
   }
+  // 注释：查看并获取声明周期钩子函数，从 type.prototype 类的原型上获取
   hasLifecycleHook(type: any, lcProperty: string): boolean {
     return this.reflectionCapabilities.hasLifecycleHook(type, lcProperty);
   }
