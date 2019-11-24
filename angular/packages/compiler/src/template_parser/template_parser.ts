@@ -85,7 +85,8 @@ export class TemplateParser {
       public transforms: t.TemplateAstVisitor[]) {}
 
   public get expressionParser() { return this._exprParser; }
-
+  
+  // 注释：编译模板为 ElementAST
   parse(
       component: CompileDirectiveMetadata, template: string|ParseTreeResult,
       directives: CompileDirectiveSummary[], pipes: CompilePipeSummary[], schemas: SchemaMetadata[],

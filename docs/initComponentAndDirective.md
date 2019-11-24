@@ -1,6 +1,6 @@
 [直接看人话总结](#总结)
 
-## 组件和指令
+## 初始化组件和指令
 
 [组件官方介绍](https://www.angular.cn/api/core/Component)
 
@@ -906,9 +906,86 @@ class JitCompiler {
 
 ```typescript
 class JitCompiler {
-  
+  // 注释：编译组件和指令
+  private _compileTemplate(template: CompiledTemplate) {
+    // 如果编译过了则跳出，`isCompiled` 在  `CompiledTemplate` 的 `compiled` 方法中被设置成true
+    if (template.isCompiled) {
+      return;
+    }
+    // 组件元数据
+    const compMeta = template.compMeta;
+    // 外部样式表
+    const externalStylesheetsByModuleUrl = new Map<string, CompiledStylesheet>();
+    // 输出上下文
+    const outputContext = createOutputContext();
+    // 解析组件样式表 @Component({styles: styleUrls})
+    const componentStylesheet = this._styleCompiler.compileComponent(outputContext, compMeta);
+    compMeta.template !.externalStylesheets.forEach((stylesheetMeta) => {
+      const compiledStylesheet =
+          this._styleCompiler.compileStyles(createOutputContext(), compMeta, stylesheetMeta);
+      externalStylesheetsByModuleUrl.set(stylesheetMeta.moduleUrl !, compiledStylesheet);
+    });
+    this._resolveStylesCompileResult(componentStylesheet, externalStylesheetsByModuleUrl);
+    // 解析出传递模块的管道（这里不知道干嘛用的）
+    const pipes = template.ngModule.transitiveModule.pipes.map(
+        pipe => this._metadataResolver.getPipeSummary(pipe.reference));
+    // 解析组件模板，使用template字符串解析并返回解析过的模板AST和使用的管道（这里比较复杂以后再深入看）
+    const {template: parsedTemplate, pipes: usedPipes} =
+        this._parseTemplate(compMeta, template.ngModule, template.directives);
+    // 返回编译的结果，带着一个唯一的视图ID viewClassVar
+    // {
+    //   rendererTypeVar: undefined,
+    //   viewClassVar: "View__EmptyOutletComponent_Host_0"
+    // }
+    const compileResult = this._viewCompiler.compileComponent(
+        outputContext, compMeta, parsedTemplate, ir.variable(componentStylesheet.stylesVar),
+        usedPipes);
+    const evalResult = this._interpretOrJit(
+        templateJitUrl(template.ngModule.type, template.compMeta), outputContext.statements);
+    // 一个视图类，返回JIT的视图
+    const viewClass = evalResult[compileResult.viewClassVar];
+    const rendererType = evalResult[compileResult.rendererTypeVar];
+    // 编译完成，设置视图类并把模板编译类的isCompiled设置为true，执行会开始更新或者创建视图
+    template.compiled(viewClass, rendererType);
+  }
+
+  // 注释：编译组件模板，返回模板AST
+  private _parseTemplate(
+      compMeta: CompileDirectiveMetadata, ngModule: CompileNgModuleMetadata,
+      directiveIdentifiers: CompileIdentifierMetadata[]):
+      {template: TemplateAst[], pipes: CompilePipeSummary[]} {
+    // Note: ! is ok here as components always have a template.
+    const preserveWhitespaces = compMeta.template !.preserveWhitespaces;
+    const directives =
+        directiveIdentifiers.map(dir => this._metadataResolver.getDirectiveSummary(dir.reference));
+    const pipes = ngModule.transitiveModule.pipes.map(
+        pipe => this._metadataResolver.getPipeSummary(pipe.reference));
+    return this._templateParser.parse(
+        compMeta, compMeta.template !.htmlAst !, directives, pipes, ngModule.schemas,
+        templateSourceUrl(ngModule.type, compMeta, compMeta.template !), preserveWhitespaces);
+  }
+
+  // 注释：解析嵌套样式表
+  private _resolveStylesCompileResult(
+      result: CompiledStylesheet, externalStylesheetsByModuleUrl: Map<string, CompiledStylesheet>) {
+    result.dependencies.forEach((dep, i) => {
+      const nestedCompileResult = externalStylesheetsByModuleUrl.get(dep.moduleUrl) !;
+      const nestedStylesArr = this._resolveAndEvalStylesCompileResult(
+          nestedCompileResult, externalStylesheetsByModuleUrl);
+      dep.setValue(nestedStylesArr);
+    });
+  }
 }
 ```
+
+这个地方就粗略讲下做了什么：
+
+1. 获得组件元数据、创建外部样式表，输出上下文
+2. 解析组件样式表，（比如 `@Component({})` 中的 `styles`，`styleUrls`）
+3. 解析出传递模块的管道，**但是这里没有被使用，这里不知道干嘛用的**
+4. 解析组件模板，**使用template字符串解析并返回解析过的模板AST和使用的管道**（这里是用来**抽象语法树AST**比较复杂以后再深入看）
+5. 解析出一个 `JIT` 视图类，返回视图
+6. 编译完成，设置视图类并把模板编译类的属性已编译 `isCompiled `设置为 `true`，执行会开始更新或者创建视图
 
 
 ## 总结
