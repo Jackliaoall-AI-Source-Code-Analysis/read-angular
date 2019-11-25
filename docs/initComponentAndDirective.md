@@ -42,6 +42,8 @@ export interface Component extends Directive {
 
 其实这样就很清楚了，组件实际上是继承指令，并且拓展了一些视图UI的属性。
 
+![组件和指令的关系](https://raw.githubusercontent.com/DimaLiLongJi/read-angular/master/docs/img/angular-directive-component.png)
+
 有一个属性很牛逼啊，`entryComponents`：**当一些组件只能动态加载，并不会在组件模板中引用，这个属性会告诉编译器也要一起编译**。
 
 但是我觉得这个可能是**ng要干掉模块的用来替换组件声明的地方了**。
